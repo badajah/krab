@@ -13,6 +13,7 @@
 
 require __DIR__ . '/../../includes/initialisation.php';
 require __DIR__ . '/fonctions.php';
+require __DIR__ . '/../agenda/fonctions.php';
 
 exiger_connexion();
 $moi = membre_connecte();
@@ -41,7 +42,7 @@ if ($est_auteur) {
          FROM candidatures ca
          JOIN membres me ON me.id = ca.membre_id
          WHERE ca.mission_id = :id AND ca.statut <> 'retiree'
-         ORDER BY FIELD(ca.statut, 'en_attente', 'acceptee', 'refusee'), ca.date_creation"
+         ORDER BY FIELD(ca.statut, 'en_attente', 'invitee', 'acceptee', 'refusee'), ca.date_creation"
     );
     $requete->execute(['id' => $mission['id']]);
     $candidatures = $requete->fetchAll();
@@ -54,6 +55,12 @@ if ($est_auteur) {
     );
     $requete->execute(['id' => $mission['id']]);
     $cibles = $requete->fetchAll();
+
+    // Peut-on encore inviter ? Si oui : membres libres pour la liste déroulante
+    $peut_inviter = $mission['statut'] === 'ouverte'
+                 && !mission_complete($mission)
+                 && ($mission['date_fin'] ?: $mission['date_debut']) >= date('Y-m-d');
+    $libres = $peut_inviter ? membres_libres($mission, $moi_id) : [];
 } else {
     $ma_candidature = candidature_de((int) $mission['id'], $moi_id);
     $refus = raison_refus_candidature($mission, $moi_id);
@@ -63,16 +70,6 @@ $titre_page  = $mission['titre'];
 $page_active = 'missions';
 require __DIR__ . '/../../includes/entete.php';
 
-/** Petit formulaire d'action (un bouton) vers modules/applications/action.php. */
-function bouton_action(string $action, int $identifiant, string $texte, string $classes = 'bouton'): string
-{
-    return '<form method="post" action="' . e(url('modules/applications/action.php')) . '">'
-         . csrf_champ()
-         . '<input type="hidden" name="action" value="' . e($action) . '">'
-         . '<input type="hidden" name="id" value="' . $identifiant . '">'
-         . '<button class="' . e($classes) . '" type="submit">' . e($texte) . '</button>'
-         . '</form>';
-}
 ?>
 
 <div class="entete-page">
@@ -126,7 +123,7 @@ function bouton_action(string $action, int $identifiant, string $texte, string $
             <?php if ($est_auteur && $mission['statut'] === 'ouverte'): ?>
                 <div class="groupe-boutons">
                     <a class="bouton bouton-secondaire bouton-petit" href="<?= e(url('modules/listings/publier.php?id=' . (int) $mission['id'])) ?>">Modifier</a>
-                    <?= bouton_action('annuler_mission', (int) $mission['id'], 'Annuler la mission', 'bouton bouton-danger bouton-petit') ?>
+                    <?= bouton_action('annuler_mission', ['id' => (int) $mission['id']], 'Annuler la mission', 'bouton bouton-danger bouton-petit') ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -167,10 +164,12 @@ function bouton_action(string $action, int $identifiant, string $texte, string $
                                 <?php if ($candidature['statut'] === 'en_attente' && $mission['statut'] === 'ouverte'): ?>
                                     <div class="groupe-boutons">
                                         <?php if (!mission_complete($mission)): ?>
-                                            <?= bouton_action('accepter', (int) $candidature['id'], 'Accepter', 'bouton bouton-succes bouton-petit') ?>
+                                            <?= bouton_action('accepter', ['id' => (int) $candidature['id']], 'Accepter', 'bouton bouton-succes bouton-petit') ?>
                                         <?php endif; ?>
-                                        <?= bouton_action('refuser', (int) $candidature['id'], 'Refuser', 'bouton bouton-secondaire bouton-petit') ?>
+                                        <?= bouton_action('refuser', ['id' => (int) $candidature['id']], 'Refuser', 'bouton bouton-secondaire bouton-petit') ?>
                                     </div>
+                                <?php elseif ($candidature['statut'] === 'invitee' && $mission['statut'] === 'ouverte'): ?>
+                                    <?= bouton_action('annuler_invitation', ['id' => (int) $candidature['id']], 'Annuler l\'invitation', 'bouton bouton-discret bouton-petit') ?>
                                 <?php endif; ?>
                             </li>
                         <?php endforeach; ?>
@@ -178,22 +177,65 @@ function bouton_action(string $action, int $identifiant, string $texte, string $
                 <?php endif; ?>
             </section>
 
+            <?php if ($peut_inviter): ?>
+                <!-- ===== Inviter des membres libres ===== -->
+                <section class="section" id="inviter">
+                    <h2>Inviter des membres disponibles</h2>
+                    <?php if (!$libres): ?>
+                        <p class="texte-discret">
+                            Aucun membre n'est disponible pour l'instant
+                            <?= $mission['competence_nom'] ? 'avec la compétence « ' . e($mission['competence_nom']) . ' » ' : '' ?>
+                            <?= !empty($mission['heure_debut']) ? 'sur cet horaire.' : 'à ces dates.' ?>
+                            La liste se remplit quand des membres indiquent leurs disponibilités dans leur agenda.
+                        </p>
+                    <?php else: ?>
+                        <form class="formulaire" method="post" action="<?= e(url('modules/applications/action.php')) ?>">
+                            <?= csrf_champ() ?>
+                            <input type="hidden" name="action" value="inviter">
+                            <input type="hidden" name="id" value="<?= (int) $mission['id'] ?>">
+                            <div class="champ">
+                                <label for="membre_id">Membres libres <?= !empty($mission['heure_debut']) ? 'sur cet horaire' : 'à ces dates' ?>
+                                    <?= $mission['competence_nom'] ? ', avec la compétence « ' . e($mission['competence_nom']) . ' »' : '' ?></label>
+                                <select id="membre_id" name="membre_id" required>
+                                    <?php foreach ($libres as $libre): ?>
+                                        <option value="<?= (int) $libre['id'] ?>"><?= e($libre['nom'] . ' ' . $libre['prenom']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button class="bouton" type="submit">Inviter</button>
+                        </form>
+                    <?php endif; ?>
+                </section>
+            <?php endif; ?>
+
         <?php else: ?>
             <!-- ===== Vue d'un autre membre : se proposer ===== -->
             <section class="section">
-                <h2>Ma candidature</h2>
+                <h2>Ma participation</h2>
 
-                <?php if ($ma_candidature && in_array($ma_candidature['statut'], ['en_attente', 'acceptee'], true)): ?>
+                <?php if ($ma_candidature && $ma_candidature['statut'] === 'invitee'): ?>
+                    <?php // Invitation reçue : le membre accepte ou refuse ?>
+                    <div class="message message-info">
+                        <?= e($mission['auteur_prenom']) ?> vous invite sur cette mission.
+                    </div>
+                    <?php if ($mission['statut'] === 'ouverte'): ?>
+                        <div class="groupe-boutons">
+                            <?= bouton_action('accepter_invitation', ['id' => (int) $ma_candidature['id']], 'Accepter', 'bouton bouton-succes') ?>
+                            <?= bouton_action('refuser_invitation', ['id' => (int) $ma_candidature['id']], 'Refuser', 'bouton bouton-secondaire') ?>
+                        </div>
+                    <?php endif; ?>
+
+                <?php elseif ($ma_candidature && in_array($ma_candidature['statut'], ['en_attente', 'acceptee'], true)): ?>
                     <p><?= etiquette_candidature($ma_candidature['statut']) ?></p>
                     <?php if ($ma_candidature['statut'] === 'acceptee'): ?>
                         <div class="message message-succes">
-                            C'est confirmé : <?= e($mission['auteur_prenom']) ?> a accepté votre candidature.
+                            C'est confirmé : la mission est dans votre agenda.
                         </div>
                     <?php else: ?>
                         <p class="texte-discret">Votre proposition a été envoyée. <?= e($mission['auteur_prenom']) ?> doit encore répondre.</p>
                     <?php endif; ?>
                     <?php if ($mission['statut'] === 'ouverte'): ?>
-                        <?= bouton_action('retirer', (int) $ma_candidature['id'], 'Retirer ma candidature', 'bouton bouton-discret') ?>
+                        <?= bouton_action('retirer', ['id' => (int) $ma_candidature['id']], 'Retirer ma candidature', 'bouton bouton-discret') ?>
                     <?php endif; ?>
 
                 <?php elseif ($ma_candidature && $ma_candidature['statut'] === 'refusee'): ?>

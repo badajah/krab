@@ -55,11 +55,13 @@ require __DIR__ . '/../../includes/entete.php';
     </div>
 </div>
 
-<?php if ($est_mon_profil): ?>
-    <div class="groupe-boutons">
+<div class="groupe-boutons">
+    <?php if ($est_mon_profil): ?>
         <a class="bouton" href="<?= e(url('modules/members/modifier-profil.php')) ?>">Modifier mon profil</a>
-    </div>
-<?php endif; ?>
+    <?php else: ?>
+        <a class="bouton" href="<?= e(url('modules/agenda/membre.php?id=' . (int) $membre['id'])) ?>">Voir ses disponibilités / l'inviter</a>
+    <?php endif; ?>
+</div>
 
 <section class="section">
     <h2>Compétences</h2>

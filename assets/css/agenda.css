@@ -1,0 +1,234 @@
+/* ==========================================================================
+   KRAB — agenda.css
+   --------------------------------------------------------------------------
+   Apparence de l'agenda : grille du mois, éléments de chaque jour
+   (disponibilités, missions) et liste des jours.
+
+   Chargé uniquement sur les pages de l'agenda (après les autres CSS).
+   Utilise les variables de variables.css.
+
+   Sur ordinateur et tablette : la grille du mois.
+   Sur téléphone : la grille est remplacée par une liste, plus lisible.
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. NAVIGATION ENTRE LES MOIS
+   Structure :
+     <nav class="agenda-navigation">
+       <a href="...">← Mois précédent</a>
+       <h2 class="agenda-mois">Décembre 2026</h2>
+       <a href="...">Mois suivant →</a>
+     </nav>
+   -------------------------------------------------------------------------- */
+
+.agenda-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--espace-m);
+    margin-bottom: var(--espace-l);
+}
+
+.agenda-mois {
+    margin: 0;
+    font-size: var(--taille-grande);
+    text-transform: capitalize;            /* « décembre » → « Décembre » */
+}
+
+
+/* --------------------------------------------------------------------------
+   2. LÉGENDE DES COULEURS
+   -------------------------------------------------------------------------- */
+
+.agenda-legende {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--espace-s) var(--espace-l);
+    margin: 0 0 var(--espace-l);
+    padding: 0;
+    list-style: none;
+    font-size: var(--taille-petite);
+    color: var(--couleur-texte-secondaire);
+}
+
+.agenda-legende li + li {
+    margin-top: 0;                          /* annule l'espace défini dans base.css */
+}
+
+/* Petit carré de couleur devant chaque élément de la légende */
+.agenda-legende .agenda-evenement {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: var(--espace-xs);
+    padding: 0;
+    vertical-align: middle;
+}
+
+
+/* --------------------------------------------------------------------------
+   3. GRILLE DU MOIS (tableau de 7 colonnes : lundi → dimanche)
+   -------------------------------------------------------------------------- */
+
+.agenda-grille {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;                    /* 7 colonnes de même largeur */
+    background-color: var(--couleur-fond-carte);
+}
+
+.agenda-grille th {
+    padding: var(--espace-s);
+    font-size: var(--taille-petite);
+    font-weight: var(--graisse-moyenne);
+    color: var(--couleur-texte-secondaire);
+    text-align: left;
+    border-bottom: var(--epaisseur-bordure) solid var(--couleur-bordure-forte);
+}
+
+.agenda-jour {
+    height: 7rem;
+    padding: var(--espace-xs);
+    vertical-align: top;
+    border: var(--epaisseur-bordure) solid var(--couleur-bordure);
+}
+
+/* Jours du mois précédent ou suivant : plus discrets */
+.agenda-jour-autre-mois {
+    background-color: var(--couleur-fond-alterne);
+}
+
+.agenda-jour-autre-mois .agenda-numero {
+    color: var(--couleur-texte-secondaire);
+}
+
+/* Aujourd'hui */
+.agenda-jour-aujourdhui {
+    box-shadow: inset 0 0 0 var(--epaisseur-focus) var(--couleur-principale);
+}
+
+/* Numéro du jour : c'est un lien pour ajouter une disponibilité ce jour-là */
+.agenda-numero {
+    display: inline-block;
+    margin-bottom: var(--espace-xs);
+    padding: 0 var(--espace-xs);
+    font-size: var(--taille-petite);
+    font-weight: var(--graisse-moyenne);
+    color: var(--couleur-texte);
+    text-decoration: none;
+    border-radius: var(--arrondi-petit);
+}
+
+.agenda-numero:hover {
+    color: var(--couleur-texte-inverse);
+    background-color: var(--couleur-principale);
+}
+
+
+/* --------------------------------------------------------------------------
+   4. ÉLÉMENTS D'UN JOUR (disponibilité, mission)
+   Exemple :
+     <ul class="agenda-evenements">
+       <li><a class="agenda-evenement agenda-evenement-dispo" href="...">09:00 – 12:00</a></li>
+     </ul>
+   -------------------------------------------------------------------------- */
+
+.agenda-evenements {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agenda-evenements li + li {
+    margin-top: var(--espace-xs);
+}
+
+.agenda-evenement {
+    display: block;
+    overflow: hidden;
+    padding: 2px var(--espace-xs);
+    font-size: var(--taille-tres-petite);
+    line-height: var(--interligne-serre);
+    color: var(--couleur-texte);
+    text-decoration: none;
+    white-space: nowrap;
+    text-overflow: ellipsis;                /* texte trop long : « … » */
+    border-left: var(--epaisseur-focus) solid var(--couleur-bordure-forte);
+    border-radius: var(--arrondi-petit);
+    background-color: var(--couleur-fond-alterne);
+}
+
+a.agenda-evenement:hover {
+    text-decoration: underline;
+}
+
+/* Mes disponibilités */
+.agenda-evenement-dispo {
+    border-left-color: var(--couleur-disponible);
+    background-color: var(--couleur-succes-fond);
+}
+
+/* Mission confirmée (j'y participe) */
+.agenda-evenement-confirmee {
+    border-left-color: var(--couleur-mission-confirmee);
+    background-color: var(--couleur-principale-claire);
+}
+
+/* En attente : candidature envoyée ou invitation reçue */
+.agenda-evenement-attente {
+    border-left-color: var(--couleur-mission-attente);
+    background-color: var(--couleur-alerte-fond);
+}
+
+/* Mission que j'ai publiée */
+.agenda-evenement-ma-mission {
+    border-left-color: var(--couleur-secondaire);
+    background-color: var(--couleur-secondaire-claire);
+}
+
+
+/* --------------------------------------------------------------------------
+   5. LISTE DES JOURS (affichée à la place de la grille sur téléphone)
+   -------------------------------------------------------------------------- */
+
+.agenda-liste {
+    display: none;                          /* cachée sur ordinateur et tablette */
+}
+
+.agenda-liste-jour {
+    margin-bottom: var(--espace-xs);
+    font-size: var(--taille-petite);
+    font-weight: var(--graisse-grasse);
+    text-transform: capitalize;
+}
+
+.agenda-liste .agenda-evenement {
+    padding: var(--espace-s);
+    font-size: var(--taille-petite);
+    white-space: normal;                    /* le texte peut aller à la ligne */
+}
+
+
+/* --------------------------------------------------------------------------
+   6. RESPONSIVE
+   -------------------------------------------------------------------------- */
+
+/* ----- Tablette (jusqu'à 1023px) ----- */
+@media (max-width: 1023px) {
+    .agenda-jour {
+        height: 5.5rem;
+    }
+}
+
+/* ----- Téléphone (jusqu'à 599px) : la liste remplace la grille ----- */
+@media (max-width: 599px) {
+    .agenda-grille {
+        display: none;
+    }
+
+    .agenda-liste {
+        display: block;
+    }
+}

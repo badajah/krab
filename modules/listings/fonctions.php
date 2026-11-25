@@ -37,6 +37,7 @@ function etiquette_candidature(string $statut): string
 {
     $etats = [
         'en_attente' => ['etiquette-attente',   'En attente'],
+        'invitee'    => ['etiquette-attente',   'Invitation'],
         'acceptee'   => ['etiquette-confirmee', 'Confirmée'],
         'refusee'    => ['etiquette-refusee',   'Refusée'],
         'retiree'    => ['etiquette-refusee',   'Retirée'],
@@ -46,14 +47,23 @@ function etiquette_candidature(string $statut): string
 }
 
 
-/** Dates d'une mission en texte : « 03.01.2027 » ou « du 03.01.2027 au 05.01.2027 ». */
+/**
+ * Dates (et horaire) d'une mission en texte :
+ * « 03.01.2027 », « 03.01.2027, 09:00 – 12:00 »
+ * ou « du 03.01.2027 au 05.01.2027, 09:00 – 12:00 ».
+ */
 function dates_mission(array $mission): string
 {
     $debut = date('d.m.Y', strtotime($mission['date_debut']));
     if (empty($mission['date_fin']) || $mission['date_fin'] === $mission['date_debut']) {
-        return $debut;
+        $texte = $debut;
+    } else {
+        $texte = 'du ' . $debut . ' au ' . date('d.m.Y', strtotime($mission['date_fin']));
     }
-    return 'du ' . $debut . ' au ' . date('d.m.Y', strtotime($mission['date_fin']));
+    if (!empty($mission['heure_debut']) && !empty($mission['heure_fin'])) {
+        $texte .= ', ' . substr($mission['heure_debut'], 0, 5) . ' – ' . substr($mission['heure_fin'], 0, 5);
+    }
+    return $texte;
 }
 
 
@@ -153,4 +163,22 @@ function raison_refus_candidature(array $mission, int $membre_id): string
         return 'Toutes les places sont prises.';
     }
     return '';
+}
+
+
+/**
+ * Petit formulaire contenant un seul bouton, qui envoie une action
+ * à modules/applications/action.php (avec la protection CSRF).
+ *
+ * $champs : informations à envoyer, ex. ['id' => 12] ou ['id' => 12, 'membre_id' => 5]
+ */
+function bouton_action(string $action, array $champs, string $texte, string $classes = 'bouton'): string
+{
+    $html = '<form method="post" action="' . e(url('modules/applications/action.php')) . '">'
+          . csrf_champ()
+          . '<input type="hidden" name="action" value="' . e($action) . '">';
+    foreach ($champs as $nom => $valeur) {
+        $html .= '<input type="hidden" name="' . e($nom) . '" value="' . e((string) $valeur) . '">';
+    }
+    return $html . '<button class="' . e($classes) . '" type="submit">' . e($texte) . '</button></form>';
 }

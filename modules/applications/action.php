@@ -10,6 +10,9 @@
      retirer          (id = candidature)  → le membre retire sa candidature
      accepter         (id = candidature)  → l'auteur accepte : CONFIRMÉ
      refuser          (id = candidature)  → l'auteur refuse
+     inviter          (id = mission, membre_id) → l'auteur invite un membre
+     accepter_invitation / refuser_invitation (id = candidature) → le membre invité répond
+     annuler_invitation (id = candidature) → l'auteur annule une invitation
      annuler_mission  (id = mission)      → l'auteur annule sa mission
 
    Pour chaque action, on vérifie côté serveur que le membre connecté
@@ -136,6 +139,104 @@ switch ($action) {
         message_flash('succes', $action === 'accepter'
             ? 'Candidature acceptée : la mission est confirmée pour cette personne.'
             : 'Candidature refusée.');
+        rediriger('modules/listings/voir.php?id=' . (int) $mission['id']);
+
+
+    /* ---------------------------------------------------------------------
+       L'auteur invite un membre sur sa mission
+       (id = mission, membre_id = membre invité)
+       --------------------------------------------------------------------- */
+    case 'inviter':
+        $mission   = lire_mission($id);
+        $membre_id = (int) ($_POST['membre_id'] ?? 0);
+
+        // Seul l'auteur peut inviter
+        if (!$mission || (int) $mission['auteur_id'] !== $moi_id) {
+            refuser_action('Action impossible.', 0);
+        }
+        if ($mission['statut'] !== 'ouverte' || ($mission['date_fin'] ?: $mission['date_debut']) < date('Y-m-d')) {
+            refuser_action('On ne peut plus inviter sur cette mission.', $id);
+        }
+        if (mission_complete($mission)) {
+            refuser_action('Toutes les places sont déjà prises.', $id);
+        }
+
+        $requete = bdd()->prepare('SELECT prenom FROM membres WHERE id = :id AND id <> :moi');
+        $requete->execute(['id' => $membre_id, 'moi' => $moi_id]);
+        $prenom_invite = $requete->fetchColumn();
+        if ($prenom_invite === false) {
+            refuser_action('Choisissez un membre à inviter.', $id);
+        }
+
+        $existante = candidature_de($id, $membre_id);
+        if ($existante && $existante['statut'] === 'en_attente') {
+            refuser_action($prenom_invite . ' s\'est déjà proposé : vous pouvez accepter sa candidature.', $id);
+        }
+        if ($existante && $existante['statut'] !== 'retiree') {
+            refuser_action($prenom_invite . ' a déjà reçu une réponse ou une invitation pour cette mission.', $id);
+        }
+
+        if ($existante) {
+            $requete = bdd()->prepare(
+                "UPDATE candidatures SET statut = 'invitee', origine = 'invitation', message = NULL,
+                        date_creation = NOW(), date_reponse = NULL
+                 WHERE id = :id"
+            );
+            $requete->execute(['id' => $existante['id']]);
+        } else {
+            $requete = bdd()->prepare(
+                "INSERT INTO candidatures (mission_id, membre_id, origine, statut)
+                 VALUES (:mission, :membre, 'invitation', 'invitee')"
+            );
+            $requete->execute(['mission' => $id, 'membre' => $membre_id]);
+        }
+
+        message_flash('succes', 'Invitation envoyée à ' . $prenom_invite . '.');
+        rediriger('modules/listings/voir.php?id=' . $id);
+
+
+    /* ---------------------------------------------------------------------
+       Le membre invité accepte ou refuse l'invitation
+       (id = candidature)
+       --------------------------------------------------------------------- */
+    case 'accepter_invitation':
+    case 'refuser_invitation':
+        $candidature = lire_candidature($id);
+        if (!$candidature || (int) $candidature['membre_id'] !== $moi_id || $candidature['statut'] !== 'invitee') {
+            refuser_action('Cette invitation n\'est plus valable.', 0);
+        }
+        $mission = lire_mission((int) $candidature['mission_id']);
+        if ($mission['statut'] !== 'ouverte') {
+            refuser_action('Cette mission a été annulée.', (int) $mission['id']);
+        }
+        if ($action === 'accepter_invitation' && mission_complete($mission)) {
+            refuser_action('Désolé, toutes les places ont été prises entre-temps.', (int) $mission['id']);
+        }
+
+        $nouveau_statut = $action === 'accepter_invitation' ? 'acceptee' : 'refusee';
+        $requete = bdd()->prepare('UPDATE candidatures SET statut = :statut, date_reponse = NOW() WHERE id = :id');
+        $requete->execute(['statut' => $nouveau_statut, 'id' => $id]);
+
+        message_flash('succes', $action === 'accepter_invitation'
+            ? 'C\'est confirmé : la mission est ajoutée à votre agenda.'
+            : 'Vous avez refusé l\'invitation.');
+        rediriger('modules/listings/voir.php?id=' . (int) $mission['id']);
+
+
+    /* ---------------------------------------------------------------------
+       L'auteur annule une invitation qui n'a pas encore reçu de réponse
+       (id = candidature)
+       --------------------------------------------------------------------- */
+    case 'annuler_invitation':
+        $candidature = lire_candidature($id);
+        $mission = $candidature ? lire_mission((int) $candidature['mission_id']) : null;
+        if (!$mission || (int) $mission['auteur_id'] !== $moi_id || $candidature['statut'] !== 'invitee') {
+            refuser_action('Action impossible.', 0);
+        }
+        $requete = bdd()->prepare("UPDATE candidatures SET statut = 'retiree', date_reponse = NOW() WHERE id = :id");
+        $requete->execute(['id' => $id]);
+
+        message_flash('info', 'Invitation annulée.');
         rediriger('modules/listings/voir.php?id=' . (int) $mission['id']);
 
 

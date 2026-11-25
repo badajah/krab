@@ -108,14 +108,29 @@ try {
     ];
 }
 
-// 7. Traitement des photos (extension GD de PHP)
+// 7. Agenda et invitations (créés par database/migrations/004_agenda.sql)
+try {
+    bdd()->query('SELECT 1 FROM disponibilites LIMIT 1');
+    bdd()->query('SELECT 1 FROM disponibilites_cibles LIMIT 1');
+    bdd()->query('SELECT origine FROM candidatures LIMIT 1');
+    bdd()->query('SELECT heure_debut FROM missions LIMIT 1');
+    $controles[] = ['nom' => 'Agenda et invitations', 'reussi' => true, 'detail' => 'Les tables existent.'];
+} catch (PDOException $erreur) {
+    $controles[] = [
+        'nom'    => 'Agenda et invitations',
+        'reussi' => false,
+        'detail' => 'Tables absentes : exécutez database/migrations/004_agenda.sql dans phpMyAdmin.',
+    ];
+}
+
+// 8. Traitement des photos (extension GD de PHP)
 $controles[] = [
     'nom'    => 'Traitement des photos',
     'reussi' => function_exists('imagecreatefromstring') && function_exists('imagejpeg'),
     'detail' => function_exists('imagejpeg') ? 'Extension GD disponible.' : 'Extension GD absente : activez-la dans MAMP.',
 ];
 
-// 8. Sessions
+// 9. Sessions
 $controles[] = [
     'nom'    => 'Sessions',
     'reussi' => session_status() === PHP_SESSION_ACTIVE,

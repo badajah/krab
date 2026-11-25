@@ -2,8 +2,9 @@
 /* ==========================================================================
    KRAB — modules/applications/index.php
    --------------------------------------------------------------------------
-   Mes candidatures : les missions pour lesquelles je me suis proposé,
-   avec leur état (en attente, confirmée, refusée).
+   Mes candidatures et invitations : les missions pour lesquelles je me
+   suis proposé ou où l'on m'a invité, avec leur état. Les invitations
+   en attente de réponse sont affichées en premier.
    ========================================================================== */
 
 require __DIR__ . '/../../includes/initialisation.php';
@@ -13,17 +14,17 @@ exiger_connexion();
 $moi = membre_connecte();
 
 $requete = bdd()->prepare(
-    "SELECT ca.statut AS statut_candidature, mi.*, me.prenom AS auteur_prenom, me.nom AS auteur_nom
+    "SELECT ca.id AS candidature_id, ca.statut AS statut_candidature, mi.*, me.prenom AS auteur_prenom, me.nom AS auteur_nom
      FROM candidatures ca
      JOIN missions mi ON mi.id = ca.mission_id
      JOIN membres me ON me.id = mi.auteur_id
      WHERE ca.membre_id = :moi AND ca.statut <> 'retiree'
-     ORDER BY mi.date_debut DESC"
+     ORDER BY (ca.statut = 'invitee') DESC, mi.date_debut DESC"
 );
 $requete->execute(['moi' => $moi['id']]);
 $candidatures = $requete->fetchAll();
 
-$titre_page   = 'Mes candidatures';
+$titre_page   = 'Candidatures et invitations';
 $page_active  = 'missions';
 $onglet_actif = 'mes-candidatures';
 require __DIR__ . '/../../includes/entete.php';
@@ -42,13 +43,13 @@ require __DIR__ . '/../../includes/entete.php';
 <section class="section">
     <?php if (!$candidatures): ?>
         <div class="etat-vide">
-            <p>Vous ne vous êtes encore proposé pour aucune mission.</p>
+            <p>Aucune candidature ni invitation pour l'instant.</p>
             <a class="bouton bouton-secondaire" href="<?= e(url('modules/listings/index.php')) ?>">Voir les missions</a>
         </div>
     <?php else: ?>
         <ul class="liste-elements">
             <?php foreach ($candidatures as $mission): ?>
-                <li class="element">
+                <li class="element <?= $mission['statut_candidature'] === 'invitee' && $mission['statut'] === 'ouverte' ? 'element-non-lu' : '' ?>">
                     <div>
                         <p class="membre-nom">
                             <a href="<?= e(url('modules/listings/voir.php?id=' . (int) $mission['id'])) ?>"><?= e($mission['titre']) ?></a>
@@ -64,6 +65,12 @@ require __DIR__ . '/../../includes/entete.php';
                             <li><?= etiquette_candidature($mission['statut_candidature']) ?></li>
                         <?php endif; ?>
                     </ul>
+                    <?php if ($mission['statut_candidature'] === 'invitee' && $mission['statut'] === 'ouverte'): ?>
+                        <div class="groupe-boutons">
+                            <?= bouton_action('accepter_invitation', ['id' => (int) $mission['candidature_id']], 'Accepter', 'bouton bouton-succes bouton-petit') ?>
+                            <?= bouton_action('refuser_invitation', ['id' => (int) $mission['candidature_id']], 'Refuser', 'bouton bouton-secondaire bouton-petit') ?>
+                        </div>
+                    <?php endif; ?>
                 </li>
             <?php endforeach; ?>
         </ul>

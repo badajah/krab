@@ -44,6 +44,8 @@ if ($mission) {
         'canton'        => $mission['canton'] ?? '',
         'date_debut'    => $mission['date_debut'],
         'date_fin'      => $mission['date_fin'] ?? '',
+        'heure_debut'   => $mission['heure_debut'] ? substr($mission['heure_debut'], 0, 5) : '',
+        'heure_fin'     => $mission['heure_fin'] ? substr($mission['heure_fin'], 0, 5) : '',
         'nombre_places' => (int) $mission['nombre_places'],
         'visibilite'    => $mission['visibilite'],
         'cibles'        => array_map('intval', $requete->fetchAll(PDO::FETCH_COLUMN)),
@@ -51,7 +53,7 @@ if ($mission) {
 } else {
     $valeurs = [
         'titre' => '', 'description' => '', 'competence_id' => 0, 'localite' => '',
-        'canton' => '', 'date_debut' => '', 'date_fin' => '', 'nombre_places' => 1,
+        'canton' => '', 'date_debut' => '', 'date_fin' => '', 'heure_debut' => '', 'heure_fin' => '', 'nombre_places' => 1,
         'visibilite' => 'publique', 'cibles' => [],
     ];
 }
@@ -81,6 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valeurs['canton']        = (string) ($_POST['canton'] ?? '');
     $valeurs['date_debut']    = (string) ($_POST['date_debut'] ?? '');
     $valeurs['date_fin']      = (string) ($_POST['date_fin'] ?? '');
+    $valeurs['heure_debut']   = (string) ($_POST['heure_debut'] ?? '');
+    $valeurs['heure_fin']     = (string) ($_POST['heure_fin'] ?? '');
     $valeurs['nombre_places'] = (int) ($_POST['nombre_places'] ?? 1);
     $valeurs['visibilite']    = (string) ($_POST['visibilite'] ?? '');
 
@@ -130,6 +134,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // Horaire facultatif : soit les deux heures, soit aucune
+    $heure_valide = fn(string $h) => (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $h);
+    if ($valeurs['heure_debut'] !== '' || $valeurs['heure_fin'] !== '') {
+        if (!$heure_valide($valeurs['heure_debut'])) {
+            $erreurs['heure_debut'] = 'Indiquez l\'heure de début (ou laissez les deux heures vides).';
+        } elseif (!$heure_valide($valeurs['heure_fin'])) {
+            $erreurs['heure_fin'] = 'Indiquez l\'heure de fin (ou laissez les deux heures vides).';
+        } elseif ($valeurs['heure_fin'] <= $valeurs['heure_debut']) {
+            $erreurs['heure_fin'] = 'L\'heure de fin doit être après l\'heure de début.';
+        }
+    }
+
     $minimum_places = $mission ? max(1, (int) $mission['places_prises']) : 1;
     if ($valeurs['nombre_places'] < $minimum_places || $valeurs['nombre_places'] > PLACES_MAXIMUM) {
         $erreurs['nombre_places'] = $mission && $mission['places_prises'] > 1
@@ -153,6 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'canton'        => $valeurs['canton'] !== '' ? $valeurs['canton'] : null,
             'date_debut'    => $valeurs['date_debut'],
             'date_fin'      => $valeurs['date_fin'] !== '' ? $valeurs['date_fin'] : null,
+            'heure_debut'   => $valeurs['heure_debut'] !== '' ? $valeurs['heure_debut'] : null,
+            'heure_fin'     => $valeurs['heure_fin'] !== '' ? $valeurs['heure_fin'] : null,
             'nombre_places' => $valeurs['nombre_places'],
             'visibilite'    => $valeurs['visibilite'],
         ];
@@ -165,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'UPDATE missions SET titre = :titre, description = :description,
                     competence_id = :competence_id, localite = :localite, canton = :canton,
                     date_debut = :date_debut, date_fin = :date_fin,
+                    heure_debut = :heure_debut, heure_fin = :heure_fin,
                     nombre_places = :nombre_places, visibilite = :visibilite
                  WHERE id = :id AND auteur_id = :auteur'
             );
@@ -172,9 +191,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $requete = $bdd->prepare(
                 'INSERT INTO missions (auteur_id, titre, description, competence_id, localite, canton,
-                                       date_debut, date_fin, nombre_places, visibilite)
+                                       date_debut, date_fin, heure_debut, heure_fin, nombre_places, visibilite)
                  VALUES (:auteur, :titre, :description, :competence_id, :localite, :canton,
-                         :date_debut, :date_fin, :nombre_places, :visibilite)'
+                         :date_debut, :date_fin, :heure_debut, :heure_fin, :nombre_places, :visibilite)'
             );
             $requete->execute($donnees + ['auteur' => $moi['id']]);
             $id = (int) $bdd->lastInsertId();
@@ -281,6 +300,20 @@ $erreur = fn(string $nom) => isset($erreurs[$nom]) ? '<p class="champ-erreur">' 
             <?= $erreur('date_fin') ?>
         </div>
     </div>
+
+    <div class="champs-cote-a-cote">
+        <div class="<?= $classe('heure_debut') ?>">
+            <label for="heure_debut">Heure de début</label>
+            <input type="time" id="heure_debut" name="heure_debut" value="<?= e($valeurs['heure_debut']) ?>">
+            <?= $erreur('heure_debut') ?>
+        </div>
+        <div class="<?= $classe('heure_fin') ?>">
+            <label for="heure_fin">Heure de fin</label>
+            <input type="time" id="heure_fin" name="heure_fin" value="<?= e($valeurs['heure_fin']) ?>">
+            <?= $erreur('heure_fin') ?>
+        </div>
+    </div>
+    <p class="champ-aide">Facultatif, mais utile : seuls les membres disponibles à ces heures vous seront proposés pour une invitation.</p>
 
     <div class="<?= $classe('nombre_places') ?>">
         <label for="nombre_places">Nombre de personnes recherchées <span class="obligatoire">*</span></label>

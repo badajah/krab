@@ -29,6 +29,10 @@ $page_active = $page_active ?? '';
     <link rel="stylesheet" href="<?= e(url('assets/css/base.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/layout.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/composants.css')) ?>">
+    <?php // Feuilles de style propres à certaines pages, ex. $css_supplementaires = ['agenda.css']; ?>
+    <?php foreach ($css_supplementaires ?? [] as $fichier_css): ?>
+        <link rel="stylesheet" href="<?= e(url('assets/css/' . $fichier_css)) ?>">
+    <?php endforeach; ?>
 
     <!-- JavaScript : "defer" = chargé après l'affichage de la page -->
     <script src="<?= e(url('assets/js/menu.js')) ?>" defer></script>
@@ -56,6 +60,7 @@ $page_active = $page_active ?? '';
 
                         <?php if (est_connecte()): ?>
                             <!-- Liens pour un membre connecté -->
+                            <li><a href="<?= e(url('modules/agenda/index.php')) ?>"<?= lien_actif('agenda', $page_active) ?>>Agenda</a></li>
                             <li><a href="<?= e(url('modules/listings/index.php')) ?>"<?= lien_actif('missions', $page_active) ?>>Missions</a></li>
                             <li><a href="<?= e(url('modules/members/annuaire.php')) ?>"<?= lien_actif('membres', $page_active) ?>>Membres</a></li>
                             <li><a href="<?= e(url('modules/members/profil.php')) ?>"<?= lien_actif('mon-profil', $page_active) ?>>Mon profil</a></li>

@@ -10,7 +10,7 @@
 $onglets = [
     'toutes'           => ['Missions proposées', 'modules/listings/index.php'],
     'mes-missions'     => ['Mes missions',       'modules/listings/mes-missions.php'],
-    'mes-candidatures' => ['Mes candidatures',   'modules/applications/index.php'],
+    'mes-candidatures' => ['Candidatures et invitations', 'modules/applications/index.php'],
 ];
 ?>
 <nav class="onglets" aria-label="Missions">
