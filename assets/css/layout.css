@@ -1,0 +1,362 @@
+/* ==========================================================================
+   KRAB — layout.css
+   --------------------------------------------------------------------------
+   Ce fichier définit la MISE EN PAGE générale du site :
+   la structure commune à toutes les pages (en-tête, menu, contenu,
+   colonne latérale, pied de page) et les grilles de placement.
+
+   Il ne contient PAS l'apparence des petits éléments (boutons, cartes,
+   messages...) : elle viendra dans d'autres fichiers.
+
+   ORDRE DE CHARGEMENT dans le HTML :
+     1. variables.css
+     2. base.css
+     3. layout.css      (ce fichier)
+     4. les autres fichiers CSS
+
+   STRUCTURE HTML PRÉVUE POUR CHAQUE PAGE :
+
+     <body>
+       <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+       <div class="page">
+         <header class="entete"> ... </header>
+         <main id="contenu" class="contenu-principal"> ... </main>
+         <footer class="pied-page"> ... </footer>
+       </div>
+     </body>
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. STRUCTURE GÉNÉRALE DE LA PAGE
+   La page est une colonne : en-tête, contenu, pied de page.
+   Le contenu prend toute la place disponible, ce qui garde
+   le pied de page en bas de l'écran même si la page est courte.
+   -------------------------------------------------------------------------- */
+
+.page {
+    display: flex;
+    flex-direction: column;                 /* éléments empilés verticalement */
+    min-height: 100vh;
+}
+
+.contenu-principal {
+    flex: 1;                                /* occupe tout l'espace restant */
+    padding-top: var(--espace-xl);
+    padding-bottom: var(--espace-xxl);
+}
+
+
+/* --------------------------------------------------------------------------
+   2. LIEN D'ÉVITEMENT (accessibilité)
+   Invisible tant qu'on ne navigue pas au clavier.
+   Permet de sauter directement au contenu sans parcourir tout le menu.
+   -------------------------------------------------------------------------- */
+
+.lien-evitement {
+    position: absolute;
+    top: var(--espace-s);
+    left: var(--espace-s);
+    z-index: 100;
+    padding: var(--espace-s) var(--espace-m);
+    color: var(--couleur-texte-inverse);
+    background-color: var(--couleur-secondaire);
+    border-radius: var(--arrondi-petit);
+    transform: translateY(-200%);           /* caché au-dessus de l'écran */
+}
+
+.lien-evitement:focus {
+    transform: translateY(0);               /* apparaît quand on y arrive au clavier */
+}
+
+
+/* --------------------------------------------------------------------------
+   3. EN-TÊTE
+   Reste visible en haut de l'écran quand on fait défiler la page.
+
+   Structure prévue :
+     <header class="entete">
+       <div class="conteneur entete-interieur">
+         <a class="logo" href="...">KRAB</a>
+         <button class="bouton-menu" ...>Menu</button>
+         <nav class="navigation"> <ul> <li><a>...</a></li> </ul> </nav>
+       </div>
+     </header>
+   -------------------------------------------------------------------------- */
+
+.entete {
+    position: sticky;                       /* reste collé en haut */
+    top: 0;
+    z-index: 50;                            /* passe au-dessus du contenu */
+    background-color: var(--couleur-fond-carte);
+    border-bottom: var(--epaisseur-bordure) solid var(--couleur-bordure);
+}
+
+.entete-interieur {
+    display: flex;
+    align-items: center;                    /* centre verticalement */
+    justify-content: space-between;         /* logo à gauche, menu à droite */
+    gap: var(--espace-m);
+    min-height: var(--hauteur-entete);
+}
+
+.logo {
+    font-size: var(--taille-grande);
+    font-weight: var(--graisse-grasse);
+    color: var(--couleur-texte);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+}
+
+.logo:hover {
+    color: var(--couleur-principale);
+}
+
+
+/* --------------------------------------------------------------------------
+   4. NAVIGATION PRINCIPALE
+   Sur ordinateur : liens alignés horizontalement.
+   Sur tablette et téléphone : menu replié, ouvert par un bouton
+   (voir la section RESPONSIVE en bas du fichier).
+   -------------------------------------------------------------------------- */
+
+.navigation ul {
+    display: flex;
+    align-items: center;
+    gap: var(--espace-l);
+    margin: 0;
+    padding: 0;
+    list-style: none;                       /* pas de puces */
+}
+
+.navigation li + li {
+    margin-top: 0;                          /* annule l'espace défini dans base.css */
+}
+
+.navigation a {
+    display: block;
+    padding: var(--espace-s) 0;
+    color: var(--couleur-texte);
+    text-decoration: none;
+    font-weight: var(--graisse-moyenne);
+}
+
+.navigation a:hover {
+    color: var(--couleur-principale);
+}
+
+/* Lien de la page actuellement affichée.
+   Le PHP ajoutera la classe "actif" au bon lien. */
+.navigation a.actif {
+    color: var(--couleur-principale);
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
+}
+
+/* Bouton d'ouverture du menu : caché sur ordinateur */
+.bouton-menu {
+    display: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   5. PIED DE PAGE
+   -------------------------------------------------------------------------- */
+
+.pied-page {
+    padding-top: var(--espace-l);
+    padding-bottom: var(--espace-l);
+    font-size: var(--taille-petite);
+    color: var(--couleur-texte-secondaire);
+    background-color: var(--couleur-fond-alterne);
+    border-top: var(--epaisseur-bordure) solid var(--couleur-bordure);
+}
+
+.pied-page-interieur {
+    display: flex;
+    flex-wrap: wrap;                        /* passe à la ligne si manque de place */
+    justify-content: space-between;
+    gap: var(--espace-m);
+}
+
+.pied-page a {
+    color: var(--couleur-texte-secondaire);
+}
+
+
+/* --------------------------------------------------------------------------
+   6. MISE EN PAGE AVEC COLONNE LATÉRALE
+   Pour les pages avec un menu ou des filtres sur le côté
+   (par exemple : paramètres du compte, recherche de missions).
+
+   Structure prévue :
+     <div class="avec-colonne">
+       <aside class="colonne-laterale"> ... </aside>
+       <div class="colonne-principale"> ... </div>
+     </div>
+   -------------------------------------------------------------------------- */
+
+.avec-colonne {
+    display: grid;
+    grid-template-columns: 260px 1fr;       /* colonne fixe + reste de la place */
+    gap: var(--espace-xl);
+    align-items: start;
+}
+
+/* min-width: 0 empêche un contenu trop large (tableau, agenda)
+   de déborder de sa colonne. */
+.colonne-principale {
+    min-width: 0;
+}
+
+
+/* --------------------------------------------------------------------------
+   7. GRILLES
+   Pour afficher des éléments côte à côte (profils, offres...).
+
+   .grille       : le nombre de colonnes s'adapte tout seul à la largeur
+                   de l'écran (chaque élément fait au moins 280px).
+   .grille-2     : 2 colonnes
+   .grille-3     : 3 colonnes
+   -------------------------------------------------------------------------- */
+
+.grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--espace-l);
+}
+
+.grille-2,
+.grille-3 {
+    display: grid;
+    gap: var(--espace-l);
+}
+
+.grille-2 { grid-template-columns: repeat(2, 1fr); }
+.grille-3 { grid-template-columns: repeat(3, 1fr); }
+
+
+/* --------------------------------------------------------------------------
+   8. SECTIONS ET EN-TÊTE DE PAGE
+   -------------------------------------------------------------------------- */
+
+/* Espace entre les grandes parties d'une page */
+.section + .section {
+    margin-top: var(--espace-xxl);
+}
+
+/* Haut de page : titre à gauche, actions éventuelles à droite.
+   Exemple : « Mes missions »  [Publier une mission] */
+.entete-page {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--espace-m);
+    margin-bottom: var(--espace-xl);
+}
+
+.entete-page h1 {
+    margin-bottom: 0;
+}
+
+/* Bloc de texte à largeur limitée, confortable à lire */
+.texte-lisible {
+    max-width: var(--largeur-max-texte);
+}
+
+
+/* --------------------------------------------------------------------------
+   9. RESPONSIVE
+   -------------------------------------------------------------------------- */
+
+/* ----- Tablette (jusqu'à 1023px) ----- */
+@media (max-width: 1023px) {
+
+    /* La colonne latérale passe au-dessus du contenu */
+    .avec-colonne {
+        grid-template-columns: 1fr;
+        gap: var(--espace-l);
+    }
+
+    .grille-3 { grid-template-columns: repeat(2, 1fr); }
+
+    /* Le bouton du menu apparaît */
+    .bouton-menu {
+        display: block;
+        min-height: var(--hauteur-champ);
+        padding: var(--espace-s) var(--espace-m);
+        background-color: transparent;
+        border: var(--epaisseur-bordure) solid var(--couleur-bordure-forte);
+        border-radius: var(--arrondi-petit);
+    }
+
+    /* Le menu est caché par défaut, sous l'en-tête */
+    .navigation {
+        display: none;
+        position: absolute;
+        top: 100%;                          /* juste sous l'en-tête */
+        left: 0;
+        right: 0;
+        padding: var(--espace-s) var(--espace-l) var(--espace-m);
+        background-color: var(--couleur-fond-carte);
+        border-bottom: var(--epaisseur-bordure) solid var(--couleur-bordure);
+        box-shadow: var(--ombre-moyenne);
+    }
+
+    /* Le menu s'affiche quand le JavaScript ajoute la classe
+       "menu-ouvert" à la balise <nav class="navigation">. */
+    .navigation.menu-ouvert {
+        display: block;
+    }
+
+    /* Liens empilés verticalement */
+    .navigation ul {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+    }
+
+    .navigation a {
+        padding: var(--espace-m) 0;
+        border-bottom: var(--epaisseur-bordure) solid var(--couleur-bordure);
+    }
+
+    .navigation li:last-child a {
+        border-bottom: 0;
+    }
+}
+
+/* ----- Téléphone (jusqu'à 599px) ----- */
+@media (max-width: 599px) {
+
+    .contenu-principal {
+        padding-top: var(--espace-l);
+        padding-bottom: var(--espace-xl);
+    }
+
+    /* Toutes les grilles passent sur une seule colonne */
+    .grille,
+    .grille-2,
+    .grille-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .navigation {
+        padding-left: var(--espace-m);
+        padding-right: var(--espace-m);
+    }
+
+    .section + .section {
+        margin-top: var(--espace-xl);
+    }
+
+    .entete-page {
+        margin-bottom: var(--espace-l);
+    }
+
+    /* Pied de page : éléments empilés */
+    .pied-page-interieur {
+        flex-direction: column;
+    }
+}

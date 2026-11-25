@@ -1,0 +1,176 @@
+/* ==========================================================================
+   KRAB — variables.css
+   --------------------------------------------------------------------------
+   Ce fichier centralise toutes les valeurs graphiques du site :
+   couleurs, polices, tailles de texte, dimensions, espacements et arrondis.
+
+   COMMENT ÇA MARCHE ?
+   Une variable CSS se déclare ainsi :   --nom-de-la-variable: valeur;
+   et s'utilise dans les autres fichiers CSS ainsi :   var(--nom-de-la-variable)
+
+   Exemple :   color: var(--couleur-texte);
+
+   Pour changer l'apparence de tout le site (par exemple la couleur
+   principale), il suffit de modifier la valeur ICI, une seule fois.
+
+   RÈGLE : les autres fichiers CSS utilisent ces variables au lieu
+   d'écrire des valeurs en dur (pas de #2b2b2b ou 16px directement).
+
+   Ce fichier doit être chargé AVANT tous les autres fichiers CSS.
+   ========================================================================== */
+
+:root {
+
+    /* ----------------------------------------------------------------------
+       1. COULEURS
+       Palette sobre : tons chauds et neutres, avec un rouge profond
+       en couleur d'accent, utilisé avec parcimonie.
+       ---------------------------------------------------------------------- */
+
+    /* Couleur principale (boutons, liens, éléments importants) */
+    --couleur-principale: #8e2b23;          /* rouge brique profond */
+    --couleur-principale-foncee: #6b1f19;   /* survol des boutons */
+    --couleur-principale-claire: #f5e6e4;   /* fonds légers, mises en évidence */
+
+    /* Couleur secondaire (éléments d'appoint) */
+    --couleur-secondaire: #2f3e46;          /* gris-bleu ardoise */
+    --couleur-secondaire-claire: #e4e8ea;
+
+    /* Textes */
+    --couleur-texte: #222222;               /* texte principal */
+    --couleur-texte-secondaire: #5c5c5c;    /* texte moins important */
+    --couleur-texte-inverse: #ffffff;       /* texte sur fond foncé */
+
+    /* Fonds */
+    --couleur-fond: #faf8f5;                /* fond général de la page */
+    --couleur-fond-carte: #ffffff;          /* fond des blocs / cartes */
+    --couleur-fond-alterne: #f0ede8;        /* lignes alternées, zones calmes */
+
+    /* Bordures */
+    --couleur-bordure: #ddd8d0;
+    --couleur-bordure-forte: #b8b2a8;
+
+    /* Couleurs d'état (messages à l'utilisateur) */
+    --couleur-succes: #2e7d4f;              /* action réussie */
+    --couleur-succes-fond: #e6f3ec;
+    --couleur-erreur: #b3261e;              /* erreur */
+    --couleur-erreur-fond: #fbe9e7;
+    --couleur-alerte: #a66300;              /* avertissement */
+    --couleur-alerte-fond: #fdf1df;
+    --couleur-info: #2f5d8a;                /* information */
+    --couleur-info-fond: #e7eef6;
+
+    /* Couleurs de l'agenda */
+    --couleur-disponible: #2e7d4f;          /* créneau disponible */
+    --couleur-mission-attente: #a66300;     /* mission en attente de validation */
+    --couleur-mission-confirmee: #8e2b23;   /* mission confirmée */
+
+    /* Contour visible quand on navigue au clavier (accessibilité) */
+    --couleur-focus: #2f5d8a;
+
+
+    /* ----------------------------------------------------------------------
+       2. POLICES
+       Polices système : aucun téléchargement, affichage rapide,
+       et rendu naturel sur chaque appareil.
+       ---------------------------------------------------------------------- */
+
+    --police-texte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+    --police-titres: var(--police-texte);
+    --police-code: "SF Mono", Menlo, Consolas, monospace;
+
+    /* Graisses (épaisseur du texte) */
+    --graisse-normale: 400;
+    --graisse-moyenne: 500;
+    --graisse-grasse: 700;
+
+    /* Interligne (espace entre les lignes) */
+    --interligne-serre: 1.25;               /* titres */
+    --interligne-normal: 1.6;               /* texte courant */
+
+
+    /* ----------------------------------------------------------------------
+       3. TAILLES DE TEXTE
+       L'unité "rem" est relative à la taille de base du navigateur
+       (généralement 16px). 1rem = 16px, 1.5rem = 24px, etc.
+       Cela respecte les réglages de taille de texte de l'utilisateur.
+       ---------------------------------------------------------------------- */
+
+    --taille-tres-petite: 0.75rem;          /* 12px : mentions, étiquettes */
+    --taille-petite: 0.875rem;              /* 14px : textes secondaires */
+    --taille-normale: 1rem;                 /* 16px : texte courant */
+    --taille-moyenne: 1.125rem;             /* 18px : intertitres légers */
+    --taille-grande: 1.5rem;                /* 24px : titres de section */
+    --taille-tres-grande: 2rem;             /* 32px : titres de page */
+
+
+    /* ----------------------------------------------------------------------
+       4. ESPACEMENTS
+       Utilisés pour les marges (margin), les marges intérieures (padding)
+       et les écarts entre éléments (gap).
+       ---------------------------------------------------------------------- */
+
+    --espace-xs: 0.25rem;                   /* 4px  */
+    --espace-s: 0.5rem;                     /* 8px  */
+    --espace-m: 1rem;                       /* 16px */
+    --espace-l: 1.5rem;                     /* 24px */
+    --espace-xl: 2rem;                      /* 32px */
+    --espace-xxl: 3rem;                     /* 48px */
+
+
+    /* ----------------------------------------------------------------------
+       5. DIMENSIONS
+       ---------------------------------------------------------------------- */
+
+    --largeur-max-contenu: 1200px;          /* largeur maximale du site */
+    --largeur-max-texte: 70ch;              /* largeur confortable pour lire
+                                               (ch = largeur d'un caractère) */
+    --hauteur-entete: 64px;                 /* hauteur de l'en-tête du site */
+    --hauteur-champ: 2.75rem;               /* hauteur des champs et boutons
+                                               (44px : facile à toucher au doigt) */
+    --taille-avatar: 48px;                  /* photo de profil, petite */
+    --taille-avatar-grande: 120px;          /* photo de profil, page profil */
+    --epaisseur-bordure: 1px;
+    --epaisseur-focus: 3px;
+
+
+    /* ----------------------------------------------------------------------
+       6. ARRONDIS (coins des éléments)
+       ---------------------------------------------------------------------- */
+
+    --arrondi-petit: 4px;                   /* champs, étiquettes */
+    --arrondi-moyen: 8px;                   /* boutons, cartes */
+    --arrondi-grand: 16px;                  /* grands blocs */
+    --arrondi-rond: 50%;                    /* cercles (avatars) */
+
+
+    /* ----------------------------------------------------------------------
+       7. OMBRES
+       ---------------------------------------------------------------------- */
+
+    --ombre-legere: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --ombre-moyenne: 0 4px 12px rgba(0, 0, 0, 0.10);
+
+
+    /* ----------------------------------------------------------------------
+       8. TRANSITIONS (durée des animations, par exemple au survol)
+       ---------------------------------------------------------------------- */
+
+    --transition-rapide: 0.15s ease;
+    --transition-normale: 0.3s ease;
+}
+
+
+/* ==========================================================================
+   POINTS DE RUPTURE (RESPONSIVE) — À TITRE DE RÉFÉRENCE
+   --------------------------------------------------------------------------
+   Attention : les variables CSS NE FONCTIONNENT PAS dans les media queries.
+   On ne peut pas écrire  @media (max-width: var(--tablette)).
+   Ces valeurs sont donc notées ici pour que tout le projet utilise
+   les mêmes, et doivent être écrites directement dans les media queries :
+
+   - Téléphone  : jusqu'à 599px      →  @media (max-width: 599px)
+   - Tablette   : de 600px à 1023px  →  @media (max-width: 1023px)
+   - Ordinateur : 1024px et plus     →  (styles par défaut)
+   ========================================================================== */

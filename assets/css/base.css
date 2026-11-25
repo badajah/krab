@@ -1,0 +1,334 @@
+/* ==========================================================================
+   KRAB — base.css
+   --------------------------------------------------------------------------
+   Ce fichier définit l'apparence DE BASE des éléments HTML
+   (texte, titres, liens, listes, images, formulaires, tableaux).
+
+   Il ne contient AUCUN style propre à une page ou à un module :
+   uniquement des règles générales valables sur tout le site.
+
+   ORDRE DE CHARGEMENT dans le HTML :
+     1. variables.css   (les valeurs)
+     2. base.css        (ce fichier)
+     3. les autres fichiers CSS (mise en page, composants, modules...)
+
+   Toutes les valeurs viennent de variables.css, via var(--...).
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. REMISE À ZÉRO (« reset »)
+   Chaque navigateur applique ses propres marges et tailles par défaut.
+   On les neutralise pour partir d'une base identique partout.
+   -------------------------------------------------------------------------- */
+
+/* La largeur d'un élément inclut sa bordure et sa marge intérieure.
+   Cela rend les calculs de taille beaucoup plus simples. */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Suppression des marges par défaut */
+body,
+h1, h2, h3, h4, h5, h6,
+p,
+ul, ol,
+figure,
+blockquote,
+dl, dd {
+    margin: 0;
+}
+
+/* Empêche le texte de grossir tout seul quand on tourne un téléphone */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+
+/* --------------------------------------------------------------------------
+   2. PAGE
+   -------------------------------------------------------------------------- */
+
+body {
+    min-height: 100vh;                      /* la page occupe au moins tout l'écran */
+    font-family: var(--police-texte);
+    font-size: var(--taille-normale);
+    font-weight: var(--graisse-normale);
+    line-height: var(--interligne-normal);
+    color: var(--couleur-texte);
+    background-color: var(--couleur-fond);
+    -webkit-font-smoothing: antialiased;    /* texte plus net sur Mac */
+}
+
+
+/* --------------------------------------------------------------------------
+   3. TITRES ET TEXTE
+   -------------------------------------------------------------------------- */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--police-titres);
+    font-weight: var(--graisse-grasse);
+    line-height: var(--interligne-serre);
+    color: var(--couleur-texte);
+}
+
+h1 { font-size: var(--taille-tres-grande); }
+h2 { font-size: var(--taille-grande); }
+h3 { font-size: var(--taille-moyenne); }
+h4,
+h5,
+h6 { font-size: var(--taille-normale); }
+
+/* Espace sous les titres et les paragraphes */
+h1, h2, h3, h4, h5, h6,
+p,
+ul, ol {
+    margin-bottom: var(--espace-m);
+}
+
+/* Le dernier élément d'un bloc n'a pas de marge inutile en dessous */
+h1:last-child, h2:last-child, h3:last-child,
+p:last-child,
+ul:last-child, ol:last-child {
+    margin-bottom: 0;
+}
+
+strong,
+b {
+    font-weight: var(--graisse-grasse);
+}
+
+small {
+    font-size: var(--taille-petite);
+}
+
+/* Code informatique éventuel */
+code,
+pre {
+    font-family: var(--police-code);
+    font-size: var(--taille-petite);
+}
+
+/* Ligne de séparation */
+hr {
+    border: 0;
+    border-top: var(--epaisseur-bordure) solid var(--couleur-bordure);
+    margin: var(--espace-l) 0;
+}
+
+
+/* --------------------------------------------------------------------------
+   4. LIENS
+   -------------------------------------------------------------------------- */
+
+a {
+    color: var(--couleur-principale);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;          /* soulignement un peu décollé du texte */
+    transition: color var(--transition-rapide);
+}
+
+a:hover {
+    color: var(--couleur-principale-foncee);
+}
+
+
+/* --------------------------------------------------------------------------
+   5. LISTES
+   -------------------------------------------------------------------------- */
+
+ul,
+ol {
+    padding-left: var(--espace-l);
+}
+
+li + li {
+    margin-top: var(--espace-xs);           /* petit espace entre les éléments */
+}
+
+
+/* --------------------------------------------------------------------------
+   6. IMAGES ET MÉDIAS
+   Une image ne dépasse jamais la largeur de son conteneur (responsive).
+   -------------------------------------------------------------------------- */
+
+img,
+svg,
+video {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+
+/* --------------------------------------------------------------------------
+   7. FORMULAIRES (apparence de base)
+   Les styles détaillés (boutons, mises en page de formulaires)
+   viendront dans d'autres fichiers.
+   -------------------------------------------------------------------------- */
+
+/* Les champs utilisent la même police que le reste du site
+   (par défaut, les navigateurs en utilisent une autre). */
+input,
+button,
+textarea,
+select {
+    font: inherit;
+    color: inherit;
+}
+
+label {
+    display: block;
+    margin-bottom: var(--espace-xs);
+    font-weight: var(--graisse-moyenne);
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    min-height: var(--hauteur-champ);
+    padding: var(--espace-s) var(--espace-m);
+    background-color: var(--couleur-fond-carte);
+    border: var(--epaisseur-bordure) solid var(--couleur-bordure-forte);
+    border-radius: var(--arrondi-petit);
+}
+
+/* Les cases à cocher et boutons radio gardent leur taille naturelle */
+input[type="checkbox"],
+input[type="radio"] {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+}
+
+/* Une zone de texte peut être agrandie en hauteur seulement */
+textarea {
+    resize: vertical;
+    min-height: calc(var(--hauteur-champ) * 3);
+}
+
+/* Champ désactivé */
+input:disabled,
+textarea:disabled,
+select:disabled,
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Texte d'exemple affiché dans un champ vide */
+::placeholder {
+    color: var(--couleur-texte-secondaire);
+    opacity: 1;
+}
+
+button {
+    cursor: pointer;
+}
+
+fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+
+/* --------------------------------------------------------------------------
+   8. TABLEAUX
+   -------------------------------------------------------------------------- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;              /* bordures simples, pas doublées */
+}
+
+th,
+td {
+    padding: var(--espace-s) var(--espace-m);
+    text-align: left;
+    border-bottom: var(--epaisseur-bordure) solid var(--couleur-bordure);
+}
+
+th {
+    font-weight: var(--graisse-grasse);
+    background-color: var(--couleur-fond-alterne);
+}
+
+
+/* --------------------------------------------------------------------------
+   9. ACCESSIBILITÉ
+   -------------------------------------------------------------------------- */
+
+/* Contour bien visible quand on navigue au clavier (touche Tab).
+   :focus-visible ne s'affiche pas lors d'un clic de souris. */
+:focus-visible {
+    outline: var(--epaisseur-focus) solid var(--couleur-focus);
+    outline-offset: 2px;
+}
+
+/* Texte masqué à l'écran mais lu par les lecteurs d'écran
+   (utilisés par les personnes aveugles ou malvoyantes).
+   Usage : <span class="visuellement-cache">Texte</span> */
+.visuellement-cache {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Respect du réglage « réduire les animations » de l'appareil */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   10. CONTENEUR PRINCIPAL
+   Centre le contenu et limite sa largeur sur les grands écrans.
+   Usage : <div class="conteneur"> ... </div>
+   -------------------------------------------------------------------------- */
+
+.conteneur {
+    width: 100%;
+    max-width: var(--largeur-max-contenu);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--espace-l);
+    padding-right: var(--espace-l);
+}
+
+
+/* --------------------------------------------------------------------------
+   11. RESPONSIVE
+   Points de rupture définis dans variables.css (voir en bas du fichier).
+   -------------------------------------------------------------------------- */
+
+/* Tablette : titres légèrement réduits */
+@media (max-width: 1023px) {
+    h1 { font-size: var(--taille-grande); }
+}
+
+/* Téléphone : titres et marges latérales réduits */
+@media (max-width: 599px) {
+    h1 { font-size: var(--taille-grande); }
+    h2 { font-size: var(--taille-moyenne); }
+
+    .conteneur {
+        padding-left: var(--espace-m);
+        padding-right: var(--espace-m);
+    }
+}
