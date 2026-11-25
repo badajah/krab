@@ -1,0 +1,5 @@
+# Fichiers envoyés par les membres : ne jamais les mettre sur GitHub
+uploads/photos/
+
+# Fichiers système du Mac
+.DS_Store

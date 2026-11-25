@@ -1,0 +1,9 @@
+# ==========================================================================
+# KRAB — uploads/.htaccess
+# --------------------------------------------------------------------------
+# Interdit tout accès DIRECT aux fichiers envoyés par les membres.
+# Les photos de profil passent par modules/members/photo.php,
+# qui vérifie que le visiteur est connecté (profils réservés aux membres).
+# ==========================================================================
+
+Require all denied
