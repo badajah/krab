@@ -5,9 +5,11 @@
    Disponibilités d'un AUTRE membre, mois par mois, et invitation de ce
    membre sur une de mes missions.
 
-   On n'affiche que les créneaux qu'il a rendus visibles pour moi
-   (contrôle dans la requête SQL, côté serveur). Ses missions et ses
-   créneaux privés ne sont jamais montrés.
+   - On n'affiche que les créneaux qu'il a rendus visibles pour moi
+     (contrôle dans la requête SQL, côté serveur). Ses missions et ses
+     créneaux privés ne sont jamais montrés.
+   - MES missions ouvertes apparaissent « en filigrane » : on voit si elles
+     tombent sur ses disponibilités, et un clic l'invite sur la mission.
 
    Adresse : membre.php?id=12&mois=2026-12
    ========================================================================== */
@@ -47,27 +49,60 @@ foreach (disponibilites_visibles($membre_id, $moi_id, $semaines[0][0], end($sema
     ]);
 }
 
-// ---- Mes missions sur lesquelles je peux l'inviter -----------------------
-// (ouvertes, pas terminées, et où il n'est pas déjà invité / candidat / refusé)
+// ---- Mes missions ouvertes, en filigrane ----------------------------------
+// Pour chacune : la situation de ce membre sur la mission (pas encore invité,
+// invité, candidat, confirmé, refusé).
 $requete = bdd()->prepare(
     "SELECT mi.*,
-            (SELECT COUNT(*) FROM candidatures ca WHERE ca.mission_id = mi.id AND ca.statut = 'acceptee') AS places_prises
+            (SELECT COUNT(*) FROM candidatures ca WHERE ca.mission_id = mi.id AND ca.statut = 'acceptee') AS places_prises,
+            (SELECT ca.statut FROM candidatures ca WHERE ca.mission_id = mi.id AND ca.membre_id = :membre) AS sa_situation
      FROM missions mi
      WHERE mi.auteur_id = :moi
        AND mi.statut = 'ouverte'
        AND COALESCE(mi.date_fin, mi.date_debut) >= CURDATE()
-       AND mi.id NOT IN (SELECT ca.mission_id FROM candidatures ca
-                         WHERE ca.membre_id = :membre AND ca.statut <> 'retiree')
      ORDER BY mi.date_debut"
 );
 $requete->execute(['moi' => $moi_id, 'membre' => $membre_id]);
-$mes_missions = array_filter($requete->fetchAll(), fn($m) => !mission_complete($m));
+$mes_missions = $requete->fetchAll();
+
+$situations = [
+    'invitee'    => 'invité·e',
+    'en_attente' => 'candidat·e',
+    'acceptee'   => 'confirmé·e',
+    'refusee'    => 'refusé·e',
+];
+$invitables = [];   // missions sur lesquelles on peut encore l'inviter
+
+foreach ($mes_missions as $mission) {
+    $situation = $mission['sa_situation'];
+    $peut_inviter = ($situation === null || $situation === 'retiree') && !mission_complete($mission);
+    $horaire = !empty($mission['heure_debut']) ? heure_courte($mission['heure_debut']) . ' ' : '';
+
+    if ($peut_inviter) {
+        $invitables[] = $mission;
+        $evenement = [
+            'type'         => 'filigrane',
+            'texte'        => '+ ' . $horaire . $mission['titre'],
+            'action'       => ['action' => 'inviter', 'id' => (int) $mission['id'], 'membre_id' => $membre_id],
+            'confirmation' => 'Inviter ' . $membre['prenom'] . ' sur « ' . $mission['titre'] . ' » ?',
+        ];
+    } else {
+        $etat = isset($situations[$situation]) ? $membre['prenom'] . ' ' . $situations[$situation] : 'complète';
+        $evenement = [
+            'type'  => 'filigrane',
+            'texte' => $horaire . $mission['titre'] . ' (' . $etat . ')',
+            'lien'  => url('modules/listings/voir.php?id=' . (int) $mission['id']),
+        ];
+    }
+    ajouter_evenement($evenements, $mission['date_debut'], $mission['date_fin'] ?: $mission['date_debut'], $evenement);
+}
 
 $adresse_mois = fn(string $m) => url('modules/agenda/membre.php?id=' . $membre_id . '&mois=' . $m);
 $lien_ajout   = false;
 
 $titre_page          = 'Disponibilités de ' . $membre['prenom'] . ' ' . $membre['nom'];
 $page_active         = 'membres';
+$vue                 = 'mois';
 $css_supplementaires = ['agenda.css'];
 require __DIR__ . '/../../includes/entete.php';
 ?>
@@ -86,7 +121,7 @@ require __DIR__ . '/../../includes/entete.php';
 
 <section class="section">
     <h2>Inviter <?= e($membre['prenom']) ?> sur une de mes missions</h2>
-    <?php if (!$mes_missions): ?>
+    <?php if (!$invitables): ?>
         <p class="texte-discret">
             Vous n'avez pas de mission ouverte sur laquelle l'inviter.
             <a href="<?= e(url('modules/listings/publier.php')) ?>">Publier une mission</a>
@@ -99,7 +134,7 @@ require __DIR__ . '/../../includes/entete.php';
             <div class="champ">
                 <label for="mission">Mission</label>
                 <select id="mission" name="id" required>
-                    <?php foreach ($mes_missions as $mission): ?>
+                    <?php foreach ($invitables as $mission): ?>
                         <option value="<?= (int) $mission['id'] ?>"><?= e($mission['titre'] . ' — ' . dates_mission($mission)) ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -112,7 +147,8 @@ require __DIR__ . '/../../includes/entete.php';
 <section class="section">
     <?php require __DIR__ . '/_grille.php'; ?>
     <p class="texte-discret texte-petit">
-        Seuls les créneaux que <?= e($membre['prenom']) ?> a choisi de vous montrer sont affichés.
+        En vert : les créneaux que <?= e($membre['prenom']) ?> a choisi de vous montrer.
+        En pointillés : vos missions. Cliquez sur une mission marquée « + » pour inviter <?= e($membre['prenom']) ?>.
     </p>
 </section>
 

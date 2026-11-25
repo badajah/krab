@@ -50,16 +50,15 @@ function horaire(array $dispo): string
 
 /**
  * Condition SQL : « ce créneau est visible par le membre :lecteur ».
- * Le texte est écrit par nous ; l'identifiant du lecteur passe
- * uniquement par le marqueur :lecteur (requête préparée).
+ *   - visibilité « Tous les membres » ;
+ *   - ou « Membres choisis » et le lecteur est choisi (directement ou
+ *     par un de ses groupes, voir includes/groupes.php).
  * $alias = nom donné à la table disponibilites dans la requête (ex. 'd').
  */
 function condition_dispo_visible(string $alias): string
 {
     return "($alias.visibilite = 'membres'
-             OR ($alias.visibilite = 'ciblee'
-                 AND EXISTS (SELECT 1 FROM disponibilites_cibles dc
-                             WHERE dc.disponibilite_id = $alias.id AND dc.membre_id = :lecteur)))";
+             OR ($alias.visibilite = 'ciblee' AND " . condition_est_cible('dispo', "$alias.id") . "))";
 }
 
 
@@ -91,59 +90,114 @@ function disponibilites_visibles(int $membre_id, int $lecteur_id, string $du, st
 
 
 /**
- * Membres LIBRES pour une mission. Un membre est proposé seulement si :
- *   1. il a la compétence demandée par la mission (si elle en demande une) ;
- *   2. il est disponible AU MOMENT de la mission, CHAQUE jour de la mission :
- *      il a un créneau visible par moi qui couvre les heures de la mission
- *      (si la mission n'a pas d'horaire, un créneau ce jour-là suffit) ;
- *   3. il n'est pas déjà invité, candidat, confirmé ou refusé sur cette mission.
+ * Membres qu'on peut inviter sur une mission, en deux listes :
+ *
+ *   'disponibles' → ont la compétence demandée (si la mission en demande une)
+ *                   ET sont libres au moment de la mission, CHAQUE jour,
+ *                   selon un créneau qu'ils m'ont rendu visible ;
+ *   'autres'      → tous les autres membres (on peut quand même les inviter).
+ *
+ * Les membres déjà invités, candidats, confirmés ou refusés sur cette
+ * mission ne sont dans aucune des deux listes.
  */
-function membres_libres(array $mission, int $lecteur_id): array
+function membres_pour_invitation(array $mission, int $moi_id): array
 {
     $du = $mission['date_debut'];
     $au = $mission['date_fin'] ?: $mission['date_debut'];
 
-    // Nombre de jours de la mission (ex. du 3 au 5 → 3 jours)
-    $nombre_jours = (int) (new DateTimeImmutable($du))->diff(new DateTimeImmutable($au))->days + 1;
+    // 1. Membres déjà concernés par la mission : exclus
+    $requete = bdd()->prepare("SELECT membre_id FROM candidatures WHERE mission_id = :mission AND statut <> 'retiree'");
+    $requete->execute(['mission' => $mission['id']]);
+    $exclus = array_map('intval', $requete->fetchAll(PDO::FETCH_COLUMN));
 
-    $conditions = [
-        'd.date_jour BETWEEN :du AND :au',
-        'm.id <> :moi',
-        condition_dispo_visible('d'),
-        "m.id NOT IN (SELECT ca.membre_id FROM candidatures ca
-                      WHERE ca.mission_id = :mission AND ca.statut <> 'retiree')",
-    ];
-    $parametres = ['du' => $du, 'au' => $au, 'moi' => $lecteur_id,
-                   'lecteur' => $lecteur_id, 'mission' => $mission['id']];
+    $tous = array_filter(autres_membres($moi_id), fn($m) => !in_array((int) $m['id'], $exclus, true));
 
-    // 1. Compétence demandée
+    // 2. Créneaux visibles par moi pendant la mission, des membres qui ont la compétence
+    $conditions = ['d.date_jour BETWEEN :du AND :au', 'd.membre_id <> :moi', condition_dispo_visible('d')];
+    $parametres = ['du' => $du, 'au' => $au, 'moi' => $moi_id, 'lecteur' => $moi_id];
     if (!empty($mission['competence_id'])) {
         $conditions[] = 'EXISTS (SELECT 1 FROM membres_competences mc
-                                 WHERE mc.membre_id = m.id AND mc.competence_id = :competence)';
+                                 WHERE mc.membre_id = d.membre_id AND mc.competence_id = :competence)';
         $parametres['competence'] = $mission['competence_id'];
     }
-
-    // 2. Le créneau doit couvrir les heures de la mission
-    if (!empty($mission['heure_debut']) && !empty($mission['heure_fin'])) {
-        $conditions[] = 'd.heure_debut <= :heure_debut AND d.heure_fin >= :heure_fin';
-        $parametres['heure_debut'] = $mission['heure_debut'];
-        $parametres['heure_fin']   = $mission['heure_fin'];
-    }
-
-    // HAVING : le membre doit être disponible TOUS les jours de la mission.
-    // $nombre_jours est un nombre entier calculé par nous (pas une donnée
-    // envoyée par un visiteur) : on peut l'écrire directement dans la requête.
     $requete = bdd()->prepare(
-        'SELECT m.id, m.prenom, m.nom
+        'SELECT d.membre_id, d.date_jour, d.heure_debut, d.heure_fin
          FROM disponibilites d
-         JOIN membres m ON m.id = d.membre_id
-         WHERE ' . implode(' AND ', $conditions) . '
-         GROUP BY m.id, m.prenom, m.nom
-         HAVING COUNT(DISTINCT d.date_jour) = ' . $nombre_jours . '
-         ORDER BY m.nom, m.prenom'
+         WHERE ' . implode(' AND ', $conditions)
     );
     $requete->execute($parametres);
-    return $requete->fetchAll();
+
+    // Range les créneaux par membre puis par jour
+    $creneaux = [];
+    foreach ($requete->fetchAll() as $ligne) {
+        $creneaux[(int) $ligne['membre_id']][$ligne['date_jour']][] = $ligne;
+    }
+
+    // 3. Sépare les membres en « disponibles » et « autres »
+    $disponibles = [];
+    $autres = [];
+    foreach ($tous as $membre) {
+        if (est_libre_pour_mission($creneaux[(int) $membre['id']] ?? [], $mission)) {
+            $disponibles[] = $membre;
+        } else {
+            $autres[] = $membre;
+        }
+    }
+    return ['disponibles' => $disponibles, 'autres' => $autres];
+}
+
+
+/**
+ * Ces créneaux (rangés par jour) couvrent-ils toute la mission ?
+ *
+ * Sans horaire : il faut au moins un créneau CHAQUE jour de la mission.
+ * Avec horaire (ex. mardi 14:00 → jeudi 10:00) :
+ *   - mission d'un seul jour : un créneau qui couvre de l'heure de début à l'heure de fin ;
+ *   - premier jour : un créneau qui commence au plus tard à l'heure de début ;
+ *   - jours du milieu : au moins un créneau ;
+ *   - dernier jour : un créneau qui finit au plus tôt à l'heure de fin.
+ */
+function est_libre_pour_mission(array $creneaux_par_jour, array $mission): bool
+{
+    $premier = $mission['date_debut'];
+    $dernier = $mission['date_fin'] ?: $mission['date_debut'];
+    $avec_horaire = !empty($mission['heure_debut']) && !empty($mission['heure_fin']);
+    $heure_debut  = $avec_horaire ? heure_courte($mission['heure_debut']) : '';
+    $heure_fin    = $avec_horaire ? heure_courte($mission['heure_fin'])   : '';
+
+    $jour = new DateTimeImmutable($premier);
+    $fin  = new DateTimeImmutable($dernier);
+
+    while ($jour <= $fin) {
+        $date = $jour->format('Y-m-d');
+        $ok = false;
+
+        foreach ($creneaux_par_jour[$date] ?? [] as $creneau) {
+            $debut_creneau = heure_courte($creneau['heure_debut']);
+            $fin_creneau   = heure_courte($creneau['heure_fin']);
+
+            if (!$avec_horaire) {
+                $ok = true;
+            } elseif ($premier === $dernier) {
+                $ok = $debut_creneau <= $heure_debut && $fin_creneau >= $heure_fin;
+            } elseif ($date === $premier) {
+                $ok = $debut_creneau <= $heure_debut;
+            } elseif ($date === $dernier) {
+                $ok = $fin_creneau >= $heure_fin;
+            } else {
+                $ok = true;
+            }
+            if ($ok) {
+                break;
+            }
+        }
+
+        if (!$ok) {
+            return false;   // un seul jour sans créneau qui convient suffit à écarter le membre
+        }
+        $jour = $jour->modify('+1 day');
+    }
+    return true;
 }
 
 

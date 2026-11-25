@@ -33,6 +33,13 @@ require __DIR__ . '/includes/entete.php';
     <p class="texte-discret"><?= e(SITE_DESCRIPTION) ?></p>
 </div>
 
+<?php if (est_connecte()): ?>
+    <div class="groupe-boutons">
+        <a class="bouton" href="<?= e(url('modules/agenda/index.php')) ?>">Ouvrir mon agenda</a>
+        <a class="bouton bouton-secondaire" href="<?= e(url('modules/applications/index.php')) ?>">Mes invitations</a>
+    </div>
+<?php endif; ?>
+
 <?php if (!est_connecte()): ?>
     <div class="groupe-boutons">
         <a class="bouton" href="<?= e(url('modules/members/inscription.php')) ?>">Rejoindre KRAB</a>

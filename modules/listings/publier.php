@@ -34,8 +34,6 @@ if ($id > 0) {
 
 // ---- Valeurs du formulaire ----------------------------------------------
 if ($mission) {
-    $requete = bdd()->prepare('SELECT membre_id FROM missions_cibles WHERE mission_id = :id');
-    $requete->execute(['id' => $id]);
     $valeurs = [
         'titre'         => $mission['titre'],
         'description'   => $mission['description'],
@@ -48,22 +46,17 @@ if ($mission) {
         'heure_fin'     => $mission['heure_fin'] ? substr($mission['heure_fin'], 0, 5) : '',
         'nombre_places' => (int) $mission['nombre_places'],
         'visibilite'    => $mission['visibilite'],
-        'cibles'        => array_map('intval', $requete->fetchAll(PDO::FETCH_COLUMN)),
+        'cibles'        => lire_cibles('mission', $id),   // membres et groupes choisis
     ];
 } else {
     $valeurs = [
         'titre' => '', 'description' => '', 'competence_id' => 0, 'localite' => '',
         'canton' => '', 'date_debut' => '', 'date_fin' => '', 'heure_debut' => '', 'heure_fin' => '', 'nombre_places' => 1,
-        'visibilite' => 'publique', 'cibles' => [],
+        'visibilite' => 'publique', 'cibles' => ['membres' => [], 'groupes' => []],
     ];
 }
 $erreurs = [];
 
-// Les autres membres (pour choisir qui voit une mission « ciblée »)
-$requete = bdd()->prepare('SELECT id, prenom, nom FROM membres WHERE id <> :moi ORDER BY nom, prenom');
-$requete->execute(['moi' => $moi['id']]);
-$autres_membres = $requete->fetchAll();
-$ids_membres    = array_map('intval', array_column($autres_membres, 'id'));
 
 $liste_competences = toutes_les_competences();
 
@@ -88,9 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valeurs['nombre_places'] = (int) ($_POST['nombre_places'] ?? 1);
     $valeurs['visibilite']    = (string) ($_POST['visibilite'] ?? '');
 
-    // Membres choisis : uniquement des membres existants (et pas soi-même)
-    $cibles = is_array($_POST['cibles'] ?? null) ? $_POST['cibles'] : [];
-    $valeurs['cibles'] = array_values(array_intersect(array_map('intval', $cibles), $ids_membres));
+    // Membres choisis : seulement des membres existants et MES groupes
+    $valeurs['cibles'] = lire_choix_cibles((int) $moi['id']);
 
     // ---- Vérifications ----
     if ($valeurs['titre'] === '') {
@@ -126,23 +118,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!$mission && $valeurs['date_debut'] < date('Y-m-d')) {
         $erreurs['date_debut'] = 'La date de début ne peut pas être passée.';
     }
-    if ($valeurs['date_fin'] !== '') {
-        if (!$date_valide($valeurs['date_fin'])) {
-            $erreurs['date_fin'] = 'Cette date n\'est pas valide.';
-        } elseif (!isset($erreurs['date_debut']) && $valeurs['date_fin'] < $valeurs['date_debut']) {
-            $erreurs['date_fin'] = 'La date de fin doit être après la date de début.';
-        }
+    // Une heure valide a la forme HH:MM (c'est ce qu'envoie le champ "time")
+    $heure_valide = fn(string $h) => (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $h);
+
+    if ($valeurs['date_fin'] !== '' && !$date_valide($valeurs['date_fin'])) {
+        $erreurs['date_fin'] = 'Cette date n\'est pas valide.';
     }
 
     // Horaire facultatif : soit les deux heures, soit aucune
-    $heure_valide = fn(string $h) => (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $h);
     if ($valeurs['heure_debut'] !== '' || $valeurs['heure_fin'] !== '') {
         if (!$heure_valide($valeurs['heure_debut'])) {
             $erreurs['heure_debut'] = 'Indiquez l\'heure de début (ou laissez les deux heures vides).';
-        } elseif (!$heure_valide($valeurs['heure_fin'])) {
+        }
+        if (!$heure_valide($valeurs['heure_fin'])) {
             $erreurs['heure_fin'] = 'Indiquez l\'heure de fin (ou laissez les deux heures vides).';
-        } elseif ($valeurs['heure_fin'] <= $valeurs['heure_debut']) {
-            $erreurs['heure_fin'] = 'L\'heure de fin doit être après l\'heure de début.';
+        }
+    }
+
+    // La fin doit être APRÈS le début. On compare des moments complets
+    // « date + heure » : mardi 14:00 → jeudi 10:00 est donc accepté.
+    if (!isset($erreurs['date_debut']) && !isset($erreurs['date_fin'])
+        && !isset($erreurs['heure_debut']) && !isset($erreurs['heure_fin'])) {
+        $jour_fin = $valeurs['date_fin'] !== '' ? $valeurs['date_fin'] : $valeurs['date_debut'];
+        if ($valeurs['heure_debut'] !== '') {
+            if ($jour_fin . ' ' . $valeurs['heure_fin'] <= $valeurs['date_debut'] . ' ' . $valeurs['heure_debut']) {
+                $erreurs['heure_fin'] = 'La fin doit être après le début (vérifiez la date et l\'heure de fin).';
+            }
+        } elseif ($jour_fin < $valeurs['date_debut']) {
+            $erreurs['date_fin'] = 'La date de fin doit être après la date de début.';
         }
     }
 
@@ -155,8 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!array_key_exists($valeurs['visibilite'], visibilites())) {
         $erreurs['visibilite'] = 'Choisissez qui peut voir la mission.';
-    } elseif ($valeurs['visibilite'] === 'ciblee' && empty($valeurs['cibles'])) {
-        $erreurs['cibles'] = 'Choisissez au moins un membre.';
+    } elseif ($valeurs['visibilite'] === 'ciblee' && !$valeurs['cibles']['membres'] && !$valeurs['cibles']['groupes']) {
+        $erreurs['cibles'] = 'Choisissez au moins un groupe ou une personne.';
     }
 
     // ---- Enregistrement ----
@@ -199,14 +202,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (int) $bdd->lastInsertId();
         }
 
-        // Membres choisis : on remplace la liste (vide si la mission n'est pas « ciblée »)
-        $bdd->prepare('DELETE FROM missions_cibles WHERE mission_id = :id')->execute(['id' => $id]);
-        if ($valeurs['visibilite'] === 'ciblee') {
-            $ajout = $bdd->prepare('INSERT INTO missions_cibles (mission_id, membre_id) VALUES (:mission, :membre)');
-            foreach ($valeurs['cibles'] as $membre_id) {
-                $ajout->execute(['mission' => $id, 'membre' => $membre_id]);
-            }
-        }
+        // Membres choisis : on remplace la liste (vidée si la mission n'est pas « ciblée »)
+        enregistrer_cibles('mission', $id, $valeurs['cibles'], $valeurs['visibilite'] === 'ciblee');
 
         $bdd->commit();
 
@@ -221,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
    -------------------------------------------------------------------------- */
 
 $titre_page  = $mission ? 'Modifier la mission' : 'Publier une mission';
-$page_active = 'missions';
+$page_active = 'agenda';
 require __DIR__ . '/../../includes/entete.php';
 
 $classe = fn(string $nom) => isset($erreurs[$nom]) ? 'champ champ-en-erreur' : 'champ';
@@ -287,33 +284,37 @@ $erreur = fn(string $nom) => isset($erreurs[$nom]) ? '<p class="champ-erreur">' 
         </div>
     </div>
 
+    <!-- Début et fin : chaque fois une date et une heure -->
     <div class="champs-cote-a-cote">
         <div class="<?= $classe('date_debut') ?>">
-            <label for="date_debut">Date de début <span class="obligatoire">*</span></label>
+            <label for="date_debut">Début : date <span class="obligatoire">*</span></label>
             <input type="date" id="date_debut" name="date_debut" required value="<?= e($valeurs['date_debut']) ?>">
             <?= $erreur('date_debut') ?>
         </div>
-        <div class="<?= $classe('date_fin') ?>">
-            <label for="date_fin">Date de fin</label>
-            <input type="date" id="date_fin" name="date_fin" value="<?= e($valeurs['date_fin']) ?>">
-            <p class="champ-aide">Laisser vide pour une seule journée.</p>
-            <?= $erreur('date_fin') ?>
+        <div class="<?= $classe('heure_debut') ?>">
+            <label for="heure_debut">Début : heure</label>
+            <input type="time" id="heure_debut" name="heure_debut" value="<?= e($valeurs['heure_debut']) ?>">
+            <?= $erreur('heure_debut') ?>
         </div>
     </div>
 
     <div class="champs-cote-a-cote">
-        <div class="<?= $classe('heure_debut') ?>">
-            <label for="heure_debut">Heure de début</label>
-            <input type="time" id="heure_debut" name="heure_debut" value="<?= e($valeurs['heure_debut']) ?>">
-            <?= $erreur('heure_debut') ?>
+        <div class="<?= $classe('date_fin') ?>">
+            <label for="date_fin">Fin : date</label>
+            <input type="date" id="date_fin" name="date_fin" value="<?= e($valeurs['date_fin']) ?>">
+            <p class="champ-aide">Vide = le même jour que le début.</p>
+            <?= $erreur('date_fin') ?>
         </div>
         <div class="<?= $classe('heure_fin') ?>">
-            <label for="heure_fin">Heure de fin</label>
+            <label for="heure_fin">Fin : heure</label>
             <input type="time" id="heure_fin" name="heure_fin" value="<?= e($valeurs['heure_fin']) ?>">
             <?= $erreur('heure_fin') ?>
         </div>
     </div>
-    <p class="champ-aide">Facultatif, mais utile : seuls les membres disponibles à ces heures vous seront proposés pour une invitation.</p>
+    <p class="champ-aide">
+        Ex. début mardi 14:00, fin jeudi 10:00. Les heures sont facultatives, mais utiles :
+        seuls les membres disponibles à ce moment-là vous seront proposés en premier pour une invitation.
+    </p>
 
     <div class="<?= $classe('nombre_places') ?>">
         <label for="nombre_places">Nombre de personnes recherchées <span class="obligatoire">*</span></label>
@@ -333,22 +334,11 @@ $erreur = fn(string $nom) => isset($erreurs[$nom]) ? '<p class="champ-erreur">' 
         <?= $erreur('visibilite') ?>
     </fieldset>
 
-    <div class="<?= $classe('cibles') ?>" id="choix-cibles">
-        <label for="cibles">Membres choisis</label>
-        <select id="cibles" name="cibles[]" multiple size="8">
-            <?php foreach ($autres_membres as $autre): ?>
-                <option value="<?= (int) $autre['id'] ?>" <?= in_array((int) $autre['id'], $valeurs['cibles'], true) ? 'selected' : '' ?>>
-                    <?= e($autre['nom'] . ' ' . $autre['prenom']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <p class="champ-aide">Seulement si vous avez choisi « Membres choisis ». Maintenez la touche ⌘ (Cmd) pour en sélectionner plusieurs.</p>
-        <?= $erreur('cibles') ?>
-    </div>
+    <?= champ_cibles((int) $moi['id'], $valeurs['cibles'], $erreurs['cibles'] ?? null) ?>
 
     <div class="actions-formulaire">
         <button class="bouton" type="submit"><?= $mission ? 'Enregistrer' : 'Publier la mission' ?></button>
-        <a href="<?= e(url($mission ? 'modules/listings/voir.php?id=' . $id : 'modules/listings/mes-missions.php')) ?>">Annuler</a>
+        <a href="<?= e(url($mission ? 'modules/listings/voir.php?id=' . $id : 'modules/agenda/index.php')) ?>">Annuler</a>
     </div>
 </form>
 

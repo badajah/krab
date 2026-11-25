@@ -29,5 +29,6 @@ require_once __DIR__ . '/base-de-donnees.php';
 require_once __DIR__ . '/fonctions.php';
 require_once __DIR__ . '/authentification.php';
 require_once __DIR__ . '/membres.php';
+require_once __DIR__ . '/groupes.php';
 
 demarrer_session();

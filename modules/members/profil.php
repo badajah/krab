@@ -58,6 +58,7 @@ require __DIR__ . '/../../includes/entete.php';
 <div class="groupe-boutons">
     <?php if ($est_mon_profil): ?>
         <a class="bouton" href="<?= e(url('modules/members/modifier-profil.php')) ?>">Modifier mon profil</a>
+        <a class="bouton bouton-secondaire" href="<?= e(url('modules/members/groupes.php')) ?>">Mes groupes</a>
     <?php else: ?>
         <a class="bouton" href="<?= e(url('modules/agenda/membre.php?id=' . (int) $membre['id'])) ?>">Voir ses disponibilités / l'inviter</a>
     <?php endif; ?>

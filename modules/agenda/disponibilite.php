@@ -35,14 +35,12 @@ if ($id > 0) {
 
 // ---- Valeurs du formulaire ----------------------------------------------
 if ($dispo) {
-    $requete = bdd()->prepare('SELECT membre_id FROM disponibilites_cibles WHERE disponibilite_id = :id');
-    $requete->execute(['id' => $id]);
     $valeurs = [
         'date_jour'   => $dispo['date_jour'],
         'heure_debut' => heure_courte($dispo['heure_debut']),
         'heure_fin'   => heure_courte($dispo['heure_fin']),
         'visibilite'  => $dispo['visibilite'],
-        'cibles'      => array_map('intval', $requete->fetchAll(PDO::FETCH_COLUMN)),
+        'cibles'      => lire_cibles('dispo', $id),   // membres et groupes choisis
     ];
 } else {
     $date_proposee = (string) ($_GET['date'] ?? '');
@@ -51,16 +49,11 @@ if ($dispo) {
         'heure_debut' => '08:00',
         'heure_fin'   => '17:00',
         'visibilite'  => 'membres',
-        'cibles'      => [],
+        'cibles'      => ['membres' => [], 'groupes' => []],
     ];
 }
 $erreurs = [];
 
-// Les autres membres (pour un créneau « membres choisis »)
-$requete = bdd()->prepare('SELECT id, prenom, nom FROM membres WHERE id <> :moi ORDER BY nom, prenom');
-$requete->execute(['moi' => $moi_id]);
-$autres_membres = $requete->fetchAll();
-$ids_membres    = array_map('intval', array_column($autres_membres, 'id'));
 
 
 /* --------------------------------------------------------------------------
@@ -83,8 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valeurs['heure_debut'] = (string) ($_POST['heure_debut'] ?? '');
     $valeurs['heure_fin']   = (string) ($_POST['heure_fin'] ?? '');
     $valeurs['visibilite']  = (string) ($_POST['visibilite'] ?? '');
-    $cibles = is_array($_POST['cibles'] ?? null) ? $_POST['cibles'] : [];
-    $valeurs['cibles'] = array_values(array_intersect(array_map('intval', $cibles), $ids_membres));
+    // Membres choisis : seulement des membres existants et MES groupes
+    $valeurs['cibles'] = lire_choix_cibles($moi_id);
 
     // ---- Vérifications ----
     $d = $valeurs['date_jour'];
@@ -106,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!array_key_exists($valeurs['visibilite'], visibilites_dispo())) {
         $erreurs['visibilite'] = 'Choisissez qui peut voir ce créneau.';
-    } elseif ($valeurs['visibilite'] === 'ciblee' && empty($valeurs['cibles'])) {
-        $erreurs['cibles'] = 'Choisissez au moins un membre.';
+    } elseif ($valeurs['visibilite'] === 'ciblee' && !$valeurs['cibles']['membres'] && !$valeurs['cibles']['groupes']) {
+        $erreurs['cibles'] = 'Choisissez au moins un groupe ou une personne.';
     }
 
     // ---- Enregistrement ----
@@ -139,14 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (int) $bdd->lastInsertId();
         }
 
-        // Membres choisis : on remplace la liste
-        $bdd->prepare('DELETE FROM disponibilites_cibles WHERE disponibilite_id = :id')->execute(['id' => $id]);
-        if ($valeurs['visibilite'] === 'ciblee') {
-            $ajout = $bdd->prepare('INSERT INTO disponibilites_cibles (disponibilite_id, membre_id) VALUES (:dispo, :membre)');
-            foreach ($valeurs['cibles'] as $membre_id) {
-                $ajout->execute(['dispo' => $id, 'membre' => $membre_id]);
-            }
-        }
+        // Membres choisis : on remplace la liste (vidée si le créneau n'est pas « ciblé »)
+        enregistrer_cibles('dispo', $id, $valeurs['cibles'], $valeurs['visibilite'] === 'ciblee');
 
         $bdd->commit();
 
@@ -213,18 +200,7 @@ $erreur = fn(string $nom) => isset($erreurs[$nom]) ? '<p class="champ-erreur">' 
         <?= $erreur('visibilite') ?>
     </fieldset>
 
-    <div class="<?= $classe('cibles') ?>">
-        <label for="cibles">Membres choisis</label>
-        <select id="cibles" name="cibles[]" multiple size="8">
-            <?php foreach ($autres_membres as $autre): ?>
-                <option value="<?= (int) $autre['id'] ?>" <?= in_array((int) $autre['id'], $valeurs['cibles'], true) ? 'selected' : '' ?>>
-                    <?= e($autre['nom'] . ' ' . $autre['prenom']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <p class="champ-aide">Seulement si vous avez choisi « Membres choisis ». Maintenez ⌘ (Cmd) pour en sélectionner plusieurs.</p>
-        <?= $erreur('cibles') ?>
-    </div>
+    <?= champ_cibles($moi_id, $valeurs['cibles'], $erreurs['cibles'] ?? null) ?>
 
     <div class="actions-formulaire">
         <button class="bouton" type="submit"><?= $dispo ? 'Enregistrer' : 'Ajouter' ?></button>

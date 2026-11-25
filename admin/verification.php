@@ -123,14 +123,29 @@ try {
     ];
 }
 
-// 8. Traitement des photos (extension GD de PHP)
+// 8. Groupes (créés par database/migrations/005_groupes.sql)
+try {
+    bdd()->query('SELECT 1 FROM groupes LIMIT 1');
+    bdd()->query('SELECT 1 FROM groupes_membres LIMIT 1');
+    bdd()->query('SELECT 1 FROM missions_groupes LIMIT 1');
+    bdd()->query('SELECT 1 FROM disponibilites_groupes LIMIT 1');
+    $controles[] = ['nom' => 'Groupes', 'reussi' => true, 'detail' => 'Les tables existent.'];
+} catch (PDOException $erreur) {
+    $controles[] = [
+        'nom'    => 'Groupes',
+        'reussi' => false,
+        'detail' => 'Tables absentes : exécutez database/migrations/005_groupes.sql dans phpMyAdmin.',
+    ];
+}
+
+// 9. Traitement des photos (extension GD de PHP)
 $controles[] = [
     'nom'    => 'Traitement des photos',
     'reussi' => function_exists('imagecreatefromstring') && function_exists('imagejpeg'),
     'detail' => function_exists('imagejpeg') ? 'Extension GD disponible.' : 'Extension GD absente : activez-la dans MAMP.',
 ];
 
-// 9. Sessions
+// 10. Sessions
 $controles[] = [
     'nom'    => 'Sessions',
     'reussi' => session_status() === PHP_SESSION_ACTIVE,

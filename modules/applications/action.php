@@ -25,7 +25,7 @@ require __DIR__ . '/../listings/fonctions.php';
 exiger_connexion();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    rediriger('modules/listings/index.php');
+    rediriger('modules/agenda/index.php');
 }
 csrf_verifier();
 
@@ -38,7 +38,7 @@ $id     = (int) ($_POST['id'] ?? 0);
 function refuser_action(string $texte, int $mission_id): void
 {
     message_flash('erreur', $texte);
-    rediriger($mission_id > 0 ? 'modules/listings/voir.php?id=' . $mission_id : 'modules/listings/index.php');
+    rediriger($mission_id > 0 ? 'modules/listings/voir.php?id=' . $mission_id : 'modules/agenda/index.php');
 }
 
 /** Lit une candidature avec sa mission. */

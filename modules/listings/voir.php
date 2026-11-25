@@ -25,10 +25,10 @@ $mission = lire_mission((int) ($_GET['id'] ?? 0));
 if (!$mission || !peut_voir_mission($mission, $moi_id)) {
     http_response_code(404);
     $titre_page  = 'Mission introuvable';
-    $page_active = 'missions';
+    $page_active = 'agenda';
     require __DIR__ . '/../../includes/entete.php';
     echo '<div class="etat-vide"><p>Cette mission n\'existe pas ou ne vous est pas accessible.</p>'
-       . '<a class="bouton bouton-secondaire" href="' . e(url('modules/listings/index.php')) . '">Voir les missions</a></div>';
+       . '<a class="bouton bouton-secondaire" href="' . e(url('modules/agenda/index.php')) . '">Retour à l\'agenda</a></div>';
     require __DIR__ . '/../../includes/pied-page.php';
     exit;
 }
@@ -47,27 +47,21 @@ if ($est_auteur) {
     $requete->execute(['id' => $mission['id']]);
     $candidatures = $requete->fetchAll();
 
-    // Membres choisis (mission ciblée)
-    $requete = bdd()->prepare(
-        'SELECT me.id, me.prenom, me.nom FROM missions_cibles mc
-         JOIN membres me ON me.id = mc.membre_id
-         WHERE mc.mission_id = :id ORDER BY me.nom, me.prenom'
-    );
-    $requete->execute(['id' => $mission['id']]);
-    $cibles = $requete->fetchAll();
+    // Membres choisis (mission ciblée) : « Groupe « Équipe », Nina Keller »
+    $texte_cibles = texte_cibles('mission', (int) $mission['id']);
 
-    // Peut-on encore inviter ? Si oui : membres libres pour la liste déroulante
+    // Peut-on encore inviter ? Si oui : liste déroulante (disponibles d'abord, puis les autres)
     $peut_inviter = $mission['statut'] === 'ouverte'
                  && !mission_complete($mission)
                  && ($mission['date_fin'] ?: $mission['date_debut']) >= date('Y-m-d');
-    $libres = $peut_inviter ? membres_libres($mission, $moi_id) : [];
+    $invitables = $peut_inviter ? membres_pour_invitation($mission, $moi_id) : ['disponibles' => [], 'autres' => []];
 } else {
     $ma_candidature = candidature_de((int) $mission['id'], $moi_id);
     $refus = raison_refus_candidature($mission, $moi_id);
 }
 
 $titre_page  = $mission['titre'];
-$page_active = 'missions';
+$page_active = 'agenda';
 require __DIR__ . '/../../includes/entete.php';
 
 ?>
@@ -116,7 +110,7 @@ require __DIR__ . '/../../includes/entete.php';
 
                 <?php if ($est_auteur && $mission['visibilite'] === 'ciblee'): ?>
                     <dt>Visible par</dt>
-                    <dd><?= e(implode(', ', array_map(fn($c) => $c['prenom'] . ' ' . $c['nom'], $cibles))) ?></dd>
+                    <dd><?= e($texte_cibles !== '' ? $texte_cibles : 'Personne pour l\'instant') ?></dd>
                 <?php endif; ?>
             </dl>
 
@@ -180,27 +174,44 @@ require __DIR__ . '/../../includes/entete.php';
             <?php if ($peut_inviter): ?>
                 <!-- ===== Inviter des membres libres ===== -->
                 <section class="section" id="inviter">
-                    <h2>Inviter des membres disponibles</h2>
-                    <?php if (!$libres): ?>
-                        <p class="texte-discret">
-                            Aucun membre n'est disponible pour l'instant
-                            <?= $mission['competence_nom'] ? 'avec la compétence « ' . e($mission['competence_nom']) . ' » ' : '' ?>
-                            <?= !empty($mission['heure_debut']) ? 'sur cet horaire.' : 'à ces dates.' ?>
-                            La liste se remplit quand des membres indiquent leurs disponibilités dans leur agenda.
-                        </p>
+                    <h2>Inviter des membres</h2>
+                    <?php if (!$invitables['disponibles'] && !$invitables['autres']): ?>
+                        <p class="texte-discret">Tous les membres ont déjà été invités ou se sont proposés.</p>
                     <?php else: ?>
+                        <?php if (!$invitables['disponibles']): ?>
+                            <p class="texte-discret">
+                                Personne n'est disponible pour l'instant
+                                <?= $mission['competence_nom'] ? 'avec la compétence « ' . e($mission['competence_nom']) . ' » ' : '' ?>
+                                à ce moment-là. Vous pouvez quand même inviter d'autres membres.
+                            </p>
+                        <?php endif; ?>
                         <form class="formulaire" method="post" action="<?= e(url('modules/applications/action.php')) ?>">
                             <?= csrf_champ() ?>
                             <input type="hidden" name="action" value="inviter">
                             <input type="hidden" name="id" value="<?= (int) $mission['id'] ?>">
                             <div class="champ">
-                                <label for="membre_id">Membres libres <?= !empty($mission['heure_debut']) ? 'sur cet horaire' : 'à ces dates' ?>
-                                    <?= $mission['competence_nom'] ? ', avec la compétence « ' . e($mission['competence_nom']) . ' »' : '' ?></label>
+                                <label for="membre_id">Membre à inviter</label>
                                 <select id="membre_id" name="membre_id" required>
-                                    <?php foreach ($libres as $libre): ?>
-                                        <option value="<?= (int) $libre['id'] ?>"><?= e($libre['nom'] . ' ' . $libre['prenom']) ?></option>
-                                    <?php endforeach; ?>
+                                    <?php // <optgroup> : titres dans la liste déroulante ?>
+                                    <?php if ($invitables['disponibles']): ?>
+                                        <optgroup label="Disponibles<?= $mission['competence_nom'] ? ' (' . e($mission['competence_nom']) . ')' : '' ?>">
+                                            <?php foreach ($invitables['disponibles'] as $membre): ?>
+                                                <option value="<?= (int) $membre['id'] ?>"><?= e($membre['nom'] . ' ' . $membre['prenom']) ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    <?php endif; ?>
+                                    <?php if ($invitables['autres']): ?>
+                                        <optgroup label="Autres membres">
+                                            <?php foreach ($invitables['autres'] as $membre): ?>
+                                                <option value="<?= (int) $membre['id'] ?>"><?= e($membre['nom'] . ' ' . $membre['prenom']) ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    <?php endif; ?>
                                 </select>
+                                <p class="champ-aide">
+                                    « Disponibles » : <?= $mission['competence_nom'] ? 'ont la compétence demandée et ' : '' ?>sont libres
+                                    pendant toute la mission, selon les créneaux qu'ils vous montrent.
+                                </p>
                             </div>
                             <button class="bouton" type="submit">Inviter</button>
                         </form>

@@ -36,6 +36,7 @@ $page_active = $page_active ?? '';
 
     <!-- JavaScript : "defer" = chargé après l'affichage de la page -->
     <script src="<?= e(url('assets/js/menu.js')) ?>" defer></script>
+    <script src="<?= e(url('assets/js/confirmation.js')) ?>" defer></script>
 </head>
 <body>
     <!-- Lien caché, visible au clavier : permet de sauter le menu -->
@@ -61,7 +62,16 @@ $page_active = $page_active ?? '';
                         <?php if (est_connecte()): ?>
                             <!-- Liens pour un membre connecté -->
                             <li><a href="<?= e(url('modules/agenda/index.php')) ?>"<?= lien_actif('agenda', $page_active) ?>>Agenda</a></li>
-                            <li><a href="<?= e(url('modules/listings/index.php')) ?>"<?= lien_actif('missions', $page_active) ?>>Missions</a></li>
+                            <li>
+                                <a href="<?= e(url('modules/applications/index.php')) ?>"<?= lien_actif('invitations', $page_active) ?>>
+                                    Invitations
+                                    <?php // Pastille : nombre d'invitations et de candidatures reçues à traiter ?>
+                                    <?php $a_traiter = nombre_a_traiter((int) membre_connecte()['id']); ?>
+                                    <?php if ($a_traiter > 0): ?>
+                                        <span class="pastille" aria-label="<?= $a_traiter ?> à traiter"><?= $a_traiter ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
                             <li><a href="<?= e(url('modules/members/annuaire.php')) ?>"<?= lien_actif('membres', $page_active) ?>>Membres</a></li>
                             <li><a href="<?= e(url('modules/members/profil.php')) ?>"<?= lien_actif('mon-profil', $page_active) ?>>Mon profil</a></li>
                             <li><a href="<?= e(url('modules/members/deconnexion.php')) ?>"<?= lien_actif('deconnexion', $page_active) ?>>Se déconnecter</a></li>

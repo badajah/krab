@@ -48,22 +48,26 @@ function etiquette_candidature(string $statut): string
 
 
 /**
- * Dates (et horaire) d'une mission en texte :
- * « 03.01.2027 », « 03.01.2027, 09:00 – 12:00 »
- * ou « du 03.01.2027 au 05.01.2027, 09:00 – 12:00 ».
+ * Début et fin d'une mission en texte :
+ *   « 03.01.2027 »
+ *   « 03.01.2027, 09:00 – 12:00 »                (une journée, avec horaire)
+ *   « du 03.01.2027 au 05.01.2027 »               (plusieurs jours, sans horaire)
+ *   « du 03.01.2027 14:00 au 05.01.2027 10:00 »   (début et fin précis)
  */
 function dates_mission(array $mission): string
 {
     $debut = date('d.m.Y', strtotime($mission['date_debut']));
-    if (empty($mission['date_fin']) || $mission['date_fin'] === $mission['date_debut']) {
-        $texte = $debut;
-    } else {
-        $texte = 'du ' . $debut . ' au ' . date('d.m.Y', strtotime($mission['date_fin']));
+    $fin   = date('d.m.Y', strtotime($mission['date_fin'] ?: $mission['date_debut']));
+    $heure_debut = !empty($mission['heure_debut']) ? substr($mission['heure_debut'], 0, 5) : '';
+    $heure_fin   = !empty($mission['heure_fin'])   ? substr($mission['heure_fin'], 0, 5)   : '';
+
+    if ($debut === $fin) {
+        return $heure_debut !== '' ? $debut . ', ' . $heure_debut . ' – ' . $heure_fin : $debut;
     }
-    if (!empty($mission['heure_debut']) && !empty($mission['heure_fin'])) {
-        $texte .= ', ' . substr($mission['heure_debut'], 0, 5) . ' – ' . substr($mission['heure_fin'], 0, 5);
+    if ($heure_debut !== '') {
+        return 'du ' . $debut . ' ' . $heure_debut . ' au ' . $fin . ' ' . $heure_fin;
     }
-    return $texte;
+    return 'du ' . $debut . ' au ' . $fin;
 }
 
 
@@ -103,11 +107,16 @@ function candidature_de(int $mission_id, int $membre_id): ?array
 }
 
 
-/** Le membre fait-il partie des membres choisis pour cette mission ? */
+/**
+ * Le membre fait-il partie des membres choisis pour cette mission ?
+ * (choisi directement, ou membre d'un des groupes choisis)
+ */
 function est_cible(int $mission_id, int $membre_id): bool
 {
-    $requete = bdd()->prepare('SELECT 1 FROM missions_cibles WHERE mission_id = :mission AND membre_id = :membre');
-    $requete->execute(['mission' => $mission_id, 'membre' => $membre_id]);
+    $requete = bdd()->prepare(
+        'SELECT 1 FROM missions mi WHERE mi.id = :mission AND ' . condition_est_cible('mission', 'mi.id')
+    );
+    $requete->execute(['mission' => $mission_id, 'lecteur' => $membre_id]);
     return (bool) $requete->fetchColumn();
 }
 

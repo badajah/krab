@@ -39,6 +39,48 @@
 
 
 /* --------------------------------------------------------------------------
+   1 bis. FILTRES (cases à cocher : disponibilités, missions, proposées)
+   -------------------------------------------------------------------------- */
+
+.agenda-filtres {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--espace-s) var(--espace-l);
+    margin: var(--espace-m) 0 var(--espace-l);
+}
+
+.agenda-filtres .choix {
+    margin-bottom: 0;
+}
+
+/* Quand agenda.js est actif, le bouton « Afficher » est inutile */
+.agenda-filtres-auto .agenda-filtres-bouton {
+    display: none;
+}
+
+/* Petit carré de couleur devant chaque filtre */
+.agenda-pastille {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: var(--arrondi-petit);
+}
+
+.agenda-pastille-dispos {
+    background-color: var(--couleur-disponible);
+}
+
+.agenda-pastille-missions {
+    background-color: var(--couleur-mission-confirmee);
+}
+
+.agenda-pastille-proposees {
+    background-color: var(--couleur-info);
+}
+
+
+/* --------------------------------------------------------------------------
    2. LÉGENDE DES COULEURS
    -------------------------------------------------------------------------- */
 
@@ -188,13 +230,50 @@ a.agenda-evenement:hover {
     background-color: var(--couleur-secondaire-claire);
 }
 
+/* Mission proposée par un autre membre (je peux m'y proposer) */
+.agenda-evenement-proposee {
+    border-left-color: var(--couleur-info);
+    border-left-style: dashed;
+    background-color: var(--couleur-info-fond);
+}
+
+/* « Filigrane » : mes missions affichées dans l'agenda d'un AUTRE membre.
+   Pâles et en pointillés ; un clic invite ce membre. */
+.agenda-evenement-filigrane {
+    color: var(--couleur-texte-secondaire);
+    border: var(--epaisseur-bordure) dashed var(--couleur-bordure-forte);
+    border-left: var(--epaisseur-focus) dashed var(--couleur-secondaire);
+    background-color: transparent;
+    opacity: 0.75;
+}
+
+/* Un élément peut être un bouton (ex. « inviter ») : on lui enlève
+   l'apparence d'un bouton pour qu'il ressemble aux autres éléments */
+button.agenda-evenement {
+    width: 100%;
+    min-height: 0;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button.agenda-evenement-filigrane:hover {
+    opacity: 1;
+    color: var(--couleur-texte);
+    border-color: var(--couleur-principale);
+}
+
 
 /* --------------------------------------------------------------------------
    5. LISTE DES JOURS (affichée à la place de la grille sur téléphone)
    -------------------------------------------------------------------------- */
 
 .agenda-liste {
-    display: none;                          /* cachée sur ordinateur et tablette */
+    display: none;                          /* cachée sur ordinateur et tablette... */
+}
+
+.agenda-liste-visible {
+    display: block;                         /* ...sauf si on a choisi la vue « Liste » */
 }
 
 .agenda-liste-jour {

@@ -9,20 +9,38 @@
    Avant de l'inclure, la page définit :
      $mois         → premier jour du mois (DateTimeImmutable)
      $evenements   → ['AAAA-MM-JJ' => [ ['type' => 'dispo', 'texte' => '...', 'lien' => '...'], ... ]]
-                     type : 'dispo', 'confirmee', 'attente' ou 'ma-mission'
+                     type : 'dispo', 'confirmee', 'attente', 'ma-mission', 'proposee' ou 'filigrane'
+                     Au lieu d'un lien, un élément peut contenir 'action' : un bouton qui
+                     envoie un formulaire (ex. inviter un membre), avec 'confirmation'.
      $adresse_mois → fonction qui reçoit 'AAAA-MM' et renvoie l'adresse de ce mois
      $lien_ajout   → true pour que chaque numéro de jour permette d'ajouter
                      une disponibilité (agenda personnel uniquement)
+     $vue          → 'mois' (grille) ou 'liste' (facultatif, 'mois' par défaut)
    ========================================================================== */
 
+$vue         = $vue ?? 'mois';
 $aujourdhui  = date('Y-m-d');
 $mois_actuel = $mois->format('Y-m');
 $noms_jours  = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 $jours_longs = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 
-/** Un élément de l'agenda (lien ou simple texte). */
+/** Un élément de l'agenda : bouton d'action, lien, ou simple texte. */
 $afficher_evenement = function (array $evenement): string {
     $classes = 'agenda-evenement agenda-evenement-' . $evenement['type'];
+
+    // Bouton qui envoie un formulaire protégé (ex. inviter un membre sur ma mission).
+    // data-confirmation : confirmation.js demande « Êtes-vous sûr ? » avant l'envoi.
+    if (!empty($evenement['action'])) {
+        $html = '<form method="post" action="' . e(url('modules/applications/action.php')) . '"'
+              . ' data-confirmation="' . e($evenement['confirmation'] ?? '') . '">'
+              . csrf_champ();
+        foreach ($evenement['action'] as $nom => $valeur) {
+            $html .= '<input type="hidden" name="' . e($nom) . '" value="' . e((string) $valeur) . '">';
+        }
+        return $html . '<button class="' . $classes . '" type="submit" title="' . e($evenement['texte']) . '">'
+                     . e($evenement['texte']) . '</button></form>';
+    }
+
     if (!empty($evenement['lien'])) {
         return '<a class="' . $classes . '" href="' . e($evenement['lien']) . '" title="' . e($evenement['texte']) . '">'
              . e($evenement['texte']) . '</a>';
@@ -37,7 +55,8 @@ $afficher_evenement = function (array $evenement): string {
     <a href="<?= e($adresse_mois($mois->modify('+1 month')->format('Y-m'))) ?>">Mois suivant →</a>
 </nav>
 
-<!-- Grille du mois (ordinateur et tablette) -->
+<?php if ($vue === 'mois'): ?>
+<!-- Grille du mois (ordinateur et tablette ; remplacée par la liste sur téléphone) -->
 <table class="agenda-grille">
     <thead>
         <tr>
@@ -76,9 +95,10 @@ $afficher_evenement = function (array $evenement): string {
         <?php endforeach; ?>
     </tbody>
 </table>
+<?php endif; ?>
 
-<!-- Liste des jours (téléphone) : seulement les jours du mois qui ont quelque chose -->
-<div class="agenda-liste">
+<!-- Liste des jours : vue « liste », ou sur téléphone. Seulement les jours du mois qui ont quelque chose. -->
+<div class="agenda-liste<?= $vue === 'liste' ? ' agenda-liste-visible' : '' ?>">
     <?php
     $jours_du_mois = array_filter(array_keys($evenements), fn($jour) => substr($jour, 0, 7) === $mois_actuel);
     sort($jours_du_mois);
